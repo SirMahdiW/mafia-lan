@@ -1,0 +1,39 @@
+# --- Gradle / Android ---
+.gradle/
+build/
+*/build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+!gradle/wrapper/gradle-wrapper.jar
+
+# --- خروجی تولیدشدهٔ GitHub Pages (در workflow ساخته می‌شود) ---
+/docs/
+
+# --- Gradle wrapper: jar عمداً در ریپو نیست (در صورت وجود حفظ می‌شود) ---
+!gradle/wrapper/gradle-wrapper.properties
+
+# --- سیستم‌عامل و ویرایشگرها ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.vscode/
+*.log
+
+# --- رازها و تنظیمات محلی (هرگز منتشر نشوند) ---
+.env
+.env.*
+secrets.properties
+google-services.json
+service-account*.json
+*.p12
+*.pem
+*.key

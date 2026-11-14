@@ -1,0 +1,685 @@
+{
+ "source": "base (2).apk (Mafia Plus — ir.adrianet.mafiaclassic)",
+ "language": "fa",
+ "direction": "rtl",
+ "audio": {
+  "role": [
+   {
+    "resource": "angel",
+    "file": "audio/role/angel.mp3",
+    "bytes": 53170
+   },
+   {
+    "resource": "black_smith",
+    "file": "audio/role/black_smith.mp3",
+    "bytes": 41885
+   },
+   {
+    "resource": "blocker",
+    "file": "audio/role/blocker.mp3",
+    "bytes": 43764
+   },
+   {
+    "resource": "bomber",
+    "file": "audio/role/bomber.mp3",
+    "bytes": 36766
+   },
+   {
+    "resource": "constantine",
+    "file": "audio/role/constantine.mp3",
+    "bytes": 44393
+   },
+   {
+    "resource": "doctor",
+    "file": "audio/role/doctor.mp3",
+    "bytes": 36870
+   },
+   {
+    "resource": "doctor_lecter",
+    "file": "audio/role/doctor_lecter.mp3",
+    "bytes": 49406
+   },
+   {
+    "resource": "freemason",
+    "file": "audio/role/freemason.mp3",
+    "bytes": 50662
+   },
+   {
+    "resource": "ghatel",
+    "file": "audio/role/ghatel.mp3",
+    "bytes": 35616
+   },
+   {
+    "resource": "god_father",
+    "file": "audio/role/god_father.mp3",
+    "bytes": 43764
+   },
+   {
+    "resource": "good_man",
+    "file": "audio/role/good_man.mp3",
+    "bytes": 35578
+   },
+   {
+    "resource": "gunsmith",
+    "file": "audio/role/gunsmith.mp3",
+    "bytes": 45020
+   },
+   {
+    "resource": "jack",
+    "file": "audio/role/jack.mp3",
+    "bytes": 31750
+   },
+   {
+    "resource": "joker",
+    "file": "audio/role/joker.mp3",
+    "bytes": 35616
+   },
+   {
+    "resource": "kalantar",
+    "file": "audio/role/kalantar.mp3",
+    "bytes": 33735
+   },
+   {
+    "resource": "kane",
+    "file": "audio/role/kane.mp3",
+    "bytes": 47674
+   },
+   {
+    "resource": "karagah",
+    "file": "audio/role/karagah.mp3",
+    "bytes": 36870
+   },
+   {
+    "resource": "keshish",
+    "file": "audio/role/keshish.mp3",
+    "bytes": 38124
+   },
+   {
+    "resource": "mafia_sade",
+    "file": "audio/role/mafia_sade.mp3",
+    "bytes": 53168
+   },
+   {
+    "resource": "matador",
+    "file": "audio/role/matador.mp3",
+    "bytes": 39375
+   },
+   {
+    "resource": "mayor",
+    "file": "audio/role/mayor.mp3",
+    "bytes": 49931
+   },
+   {
+    "resource": "mohafez",
+    "file": "audio/role/mohafez.mp3",
+    "bytes": 56201
+   },
+   {
+    "resource": "natasha",
+    "file": "audio/role/natasha.mp3",
+    "bytes": 40002
+   },
+   {
+    "resource": "nostradamos",
+    "file": "audio/role/nostradamos.mp3",
+    "bytes": 45543
+   },
+   {
+    "resource": "poaro",
+    "file": "audio/role/poaro.mp3",
+    "bytes": 32698
+   },
+   {
+    "resource": "sharlatan",
+    "file": "audio/role/sharlatan.mp3",
+    "bytes": 44391
+   },
+   {
+    "resource": "sherlock",
+    "file": "audio/role/sherlock.mp3",
+    "bytes": 41258
+   },
+   {
+    "resource": "sniper",
+    "file": "audio/role/sniper.mp3",
+    "bytes": 46274
+   },
+   {
+    "resource": "spy",
+    "file": "audio/role/spy.mp3",
+    "bytes": 46901
+   },
+   {
+    "resource": "terrorist",
+    "file": "audio/role/terrorist.mp3",
+    "bytes": 44391
+   },
+   {
+    "resource": "vakil",
+    "file": "audio/role/vakil.mp3",
+    "bytes": 51812
+   },
+   {
+    "resource": "zoodiak",
+    "file": "audio/role/zoodiak.mp3",
+    "bytes": 51289
+   }
+  ],
+  "sfx": [
+   {
+    "resource": "begin_night",
+    "file": "audio/sfx/begin_night.mp3",
+    "bytes": 52928
+   },
+   {
+    "resource": "bekhab",
+    "file": "audio/sfx/bekhab.mp3",
+    "bytes": 42512
+   },
+   {
+    "resource": "cancel_action",
+    "file": "audio/sfx/cancel_action.mp3",
+    "bytes": 17833
+   },
+   {
+    "resource": "dastha_ro_bendazin",
+    "file": "audio/sfx/dastha_ro_bendazin.mp3",
+    "bytes": 142822
+   },
+   {
+    "resource": "ding",
+    "file": "audio/sfx/ding.mp3",
+    "bytes": 93229
+   },
+   {
+    "resource": "doctor_one_save",
+    "file": "audio/sfx/doctor_one_save.mp3",
+    "bytes": 58813
+   },
+   {
+    "resource": "doctor_two_save",
+    "file": "audio/sfx/doctor_two_save.mp3",
+    "bytes": 61320
+   },
+   {
+    "resource": "explosion",
+    "file": "audio/sfx/explosion.mp3",
+    "bytes": 120372
+   },
+   {
+    "resource": "finish_time",
+    "file": "audio/sfx/finish_time.mp3",
+    "bytes": 284282
+   },
+   {
+    "resource": "hamde_dasta_jolo",
+    "file": "audio/sfx/hamde_dasta_jolo.mp3",
+    "bytes": 53170
+   },
+   {
+    "resource": "khabe_nim_rozi",
+    "file": "audio/sfx/khabe_nim_rozi.mp3",
+    "bytes": 57455
+   },
+   {
+    "resource": "kick_from_game",
+    "file": "audio/sfx/kick_from_game.mp3",
+    "bytes": 39377
+   },
+   {
+    "resource": "mafia_bekhaban",
+    "file": "audio/sfx/mafia_bekhaban.mp3",
+    "bytes": 56305
+   },
+   {
+    "resource": "mafia_bidar_shan",
+    "file": "audio/sfx/mafia_bidar_shan.mp3",
+    "bytes": 51289
+   },
+   {
+    "resource": "marge_masoni",
+    "file": "audio/sfx/marge_masoni.mp3",
+    "bytes": 46901
+   },
+   {
+    "resource": "open_action",
+    "file": "audio/sfx/open_action.mp3",
+    "bytes": 37686
+   },
+   {
+    "resource": "salakhi",
+    "file": "audio/sfx/salakhi.mp3",
+    "bytes": 37882
+   },
+   {
+    "resource": "select_action",
+    "file": "audio/sfx/select_action.mp3",
+    "bytes": 11563
+   },
+   {
+    "resource": "shab_mishe",
+    "file": "audio/sfx/shab_mishe.mp3",
+    "bytes": 95792
+   },
+   {
+    "resource": "shot_mafia",
+    "file": "audio/sfx/shot_mafia.mp3",
+    "bytes": 59439
+   }
+  ],
+  "music": [
+   {
+    "resource": "main_audio",
+    "file": "audio/music/main_audio.mp3",
+    "bytes": 928961
+   },
+   {
+    "resource": "night_audio",
+    "file": "audio/music/night_audio.mp3",
+    "bytes": 648039
+   },
+   {
+    "resource": "day_audio",
+    "file": "audio/music/day_audio.mp3",
+    "bytes": 106813
+   },
+   {
+    "resource": "night_new",
+    "file": "audio/music/night_new.mp3",
+    "bytes": 762766
+   },
+   {
+    "resource": "night_gang",
+    "file": "audio/music/night_gang.mp3",
+    "bytes": 1081583
+   },
+   {
+    "resource": "night_bi_enteha",
+    "file": "audio/music/night_bi_enteha.mp3",
+    "bytes": 903006
+   }
+  ],
+  "win": [
+   {
+    "resource": "shahr_win",
+    "file": "audio/win/shahr_win.mp3",
+    "bytes": 732556
+   },
+   {
+    "resource": "mafia_win",
+    "file": "audio/win/mafia_win.mp3",
+    "bytes": 543430
+   },
+   {
+    "resource": "ghatel_win",
+    "file": "audio/win/ghatel_win.mp3",
+    "bytes": 638515
+   },
+   {
+    "resource": "jack_win",
+    "file": "audio/win/jack_win.mp3",
+    "bytes": 366817
+   },
+   {
+    "resource": "joker_win",
+    "file": "audio/win/joker_win.mp3",
+    "bytes": 676118
+   },
+   {
+    "resource": "sherlock_win",
+    "file": "audio/win/sherlock_win.mp3",
+    "bytes": 641120
+   },
+   {
+    "resource": "ravi_shahrvand_win",
+    "file": "audio/win/ravi_shahrvand_win.mp3",
+    "bytes": 52858
+   },
+   {
+    "resource": "ravi_mafia_win",
+    "file": "audio/win/ravi_mafia_win.mp3",
+    "bytes": 63802
+   },
+   {
+    "resource": "ravi_ghatel_win",
+    "file": "audio/win/ravi_ghatel_win.mp3",
+    "bytes": 56314
+   },
+   {
+    "resource": "ravi_jack_win",
+    "file": "audio/win/ravi_jack_win.mp3",
+    "bytes": 63724
+   },
+   {
+    "resource": "ravi_joker_win",
+    "file": "audio/win/ravi_joker_win.mp3",
+    "bytes": 66682
+   },
+   {
+    "resource": "ravi_sherlock_win",
+    "file": "audio/win/ravi_sherlock_win.mp3",
+    "bytes": 68410
+   },
+   {
+    "resource": "ravi_zodiak_win",
+    "file": "audio/win/ravi_zodiak_win.mp3",
+    "bytes": 74170
+   },
+   {
+    "resource": "roeen_tan",
+    "file": "audio/win/roeen_tan.mp3",
+    "bytes": 49408
+   }
+  ]
+ },
+ "audio_numbered": [
+  {
+   "slot": "01",
+   "resource": "shab_mishe",
+   "file": "audio/01.mp3",
+   "bytes": 95792
+  },
+  {
+   "slot": "02",
+   "resource": "begin_night",
+   "file": "audio/02.mp3",
+   "bytes": 52928
+  },
+  {
+   "slot": "03",
+   "resource": "day_audio",
+   "file": "audio/03.mp3",
+   "bytes": 106813
+  },
+  {
+   "slot": "04",
+   "resource": "kick_from_game",
+   "file": "audio/04.mp3",
+   "bytes": 39377
+  },
+  {
+   "slot": "05",
+   "resource": "kick_from_game",
+   "file": "audio/05.mp3",
+   "bytes": 39377
+  },
+  {
+   "slot": "06",
+   "resource": "ding",
+   "file": "audio/06.mp3",
+   "bytes": 93229
+  },
+  {
+   "slot": "07",
+   "resource": "bekhab",
+   "file": "audio/07.mp3",
+   "bytes": 42512
+  },
+  {
+   "slot": "08",
+   "resource": "mafia_bidar_shan",
+   "file": "audio/08.mp3",
+   "bytes": 51289
+  },
+  {
+   "slot": "09",
+   "resource": "mafia_bekhaban",
+   "file": "audio/09.mp3",
+   "bytes": 56305
+  },
+  {
+   "slot": "10",
+   "resource": "doctor",
+   "file": "audio/10.mp3",
+   "bytes": 36870
+  },
+  {
+   "slot": "11",
+   "resource": "doctor",
+   "file": "audio/11.mp3",
+   "bytes": 36870
+  },
+  {
+   "slot": "12",
+   "resource": "karagah",
+   "file": "audio/12.mp3",
+   "bytes": 36870
+  },
+  {
+   "slot": "13",
+   "resource": "karagah",
+   "file": "audio/13.mp3",
+   "bytes": 36870
+  },
+  {
+   "slot": "14",
+   "resource": "sniper",
+   "file": "audio/14.mp3",
+   "bytes": 46274
+  },
+  {
+   "slot": "15",
+   "resource": "sniper",
+   "file": "audio/15.mp3",
+   "bytes": 46274
+  },
+  {
+   "slot": "16",
+   "resource": "black_smith",
+   "file": "audio/16.mp3",
+   "bytes": 41885
+  },
+  {
+   "slot": "17",
+   "resource": "black_smith",
+   "file": "audio/17.mp3",
+   "bytes": 41885
+  }
+ ],
+ "images": [
+  {
+   "resource": "img_shahrvand",
+   "file": "img/roles/img_shahrvand.png",
+   "width": 260,
+   "bytes": 95345
+  },
+  {
+   "resource": "img_doctor",
+   "file": "img/roles/img_doctor.png",
+   "width": 437,
+   "bytes": 7408
+  },
+  {
+   "resource": "img_karagah",
+   "file": "img/roles/img_karagah.png",
+   "width": 293,
+   "bytes": 149638
+  },
+  {
+   "resource": "img_karagah_vije",
+   "file": "img/roles/img_karagah_vije.png",
+   "width": 260,
+   "bytes": 95345
+  },
+  {
+   "resource": "img_tirandaz",
+   "file": "img/roles/img_tirandaz.png",
+   "width": 318,
+   "bytes": 171396
+  },
+  {
+   "resource": "img_kalantar",
+   "file": "img/roles/img_kalantar.png",
+   "width": 357,
+   "bytes": 178306
+  },
+  {
+   "resource": "img_black_smith",
+   "file": "img/roles/img_black_smith.png",
+   "width": 474,
+   "bytes": 305607
+  },
+  {
+   "resource": "img_mohafez",
+   "file": "img/roles/img_mohafez.png",
+   "width": 300,
+   "bytes": 210303
+  },
+  {
+   "resource": "img_angel",
+   "file": "img/roles/img_angel.png",
+   "width": 306,
+   "bytes": 85426
+  },
+  {
+   "resource": "img_keshish",
+   "file": "img/roles/img_keshish.png",
+   "width": 287,
+   "bytes": 152268
+  },
+  {
+   "resource": "img_constantin",
+   "file": "img/roles/img_constantin.png",
+   "width": 294,
+   "bytes": 126202
+  },
+  {
+   "resource": "img_gun_smith",
+   "file": "img/roles/img_gun_smith.png",
+   "width": 344,
+   "bytes": 166568
+  },
+  {
+   "resource": "img_hamshhri_kein",
+   "file": "img/roles/img_hamshhri_kein.png",
+   "width": 372,
+   "bytes": 159918
+  },
+  {
+   "resource": "img_mayor",
+   "file": "img/roles/img_mayor.png",
+   "width": 233,
+   "bytes": 1233
+  },
+  {
+   "resource": "img_jocker",
+   "file": "img/roles/img_jocker.png",
+   "width": 366,
+   "bytes": 208993
+  },
+  {
+   "resource": "img_ghatel",
+   "file": "img/roles/img_ghatel.png",
+   "width": 297,
+   "bytes": 146033
+  },
+  {
+   "resource": "img_zoodiyak",
+   "file": "img/roles/img_zoodiyak.png",
+   "width": 294,
+   "bytes": 161199
+  },
+  {
+   "resource": "img_sherlook",
+   "file": "img/roles/img_sherlook.png",
+   "width": 372,
+   "bytes": 174823
+  },
+  {
+   "resource": "img_jack",
+   "file": "img/roles/img_jack.png",
+   "width": 327,
+   "bytes": 250308
+  },
+  {
+   "resource": "img_nostradamos",
+   "file": "img/roles/img_nostradamos.png",
+   "width": 306,
+   "bytes": 269894
+  },
+  {
+   "resource": "img_mafia",
+   "file": "img/roles/img_mafia.png",
+   "width": 309,
+   "bytes": 140107
+  },
+  {
+   "resource": "img_raees_mafia",
+   "file": "img/roles/img_raees_mafia.png",
+   "width": 374,
+   "bytes": 175532
+  },
+  {
+   "resource": "img_doctor_lecter",
+   "file": "img/roles/img_doctor_lecter.png",
+   "width": 332,
+   "bytes": 169679
+  },
+  {
+   "resource": "img_spy",
+   "file": "img/roles/img_spy.png",
+   "width": 299,
+   "bytes": 146181
+  },
+  {
+   "resource": "img_terrorist",
+   "file": "img/roles/img_terrorist.png",
+   "width": 247,
+   "bytes": 135098
+  },
+  {
+   "resource": "img_bomber",
+   "file": "img/roles/img_bomber.png",
+   "width": 315,
+   "bytes": 209628
+  },
+  {
+   "resource": "img_good_man",
+   "file": "img/roles/img_good_man.png",
+   "width": 261,
+   "bytes": 2497
+  },
+  {
+   "resource": "img_vakil",
+   "file": "img/roles/img_vakil.png",
+   "width": 222,
+   "bytes": 112907
+  },
+  {
+   "resource": "img_matador",
+   "file": "img/roles/img_matador.png",
+   "width": 294,
+   "bytes": 118809
+  },
+  {
+   "resource": "img_blocker",
+   "file": "img/roles/img_blocker.png",
+   "width": 468,
+   "bytes": 240385
+  },
+  {
+   "resource": "img_natasha",
+   "file": "img/roles/img_natasha.png",
+   "width": 335,
+   "bytes": 131003
+  },
+  {
+   "resource": "img_sharlatan",
+   "file": "img/roles/img_sharlatan.png",
+   "width": 217,
+   "bytes": 82909
+  },
+  {
+   "resource": "img_ahoora",
+   "file": "img/roles/img_ahoora.png",
+   "width": 525,
+   "bytes": 138807
+  },
+  {
+   "resource": "img_roeen_tan",
+   "file": "img/roles/img_roeen_tan.png",
+   "width": 317,
+   "bytes": 162417
+  }
+ ]
+}

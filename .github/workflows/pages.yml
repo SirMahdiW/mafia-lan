@@ -1,0 +1,58 @@
+name: Deploy Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'app/src/main/assets/client.html'
+      - 'app/src/main/assets/data/**'
+      - 'app/src/main/assets/img/**'
+      - 'app/src/main/assets/audio/**'
+      - 'tools/build_pages.py'
+      - '.github/workflows/pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ساخت نسخهٔ ایستا
+    runs-on: ubuntu-latest
+    steps:
+      - name: برداشت کد
+        uses: actions/checkout@v4
+
+      - name: نصب پایتون
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: ساخت سایت ایستا (همان رابط واقعی برنامه)
+        run: python tools/build_pages.py
+
+      - name: پیکربندی GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: بارگذاری artifact سایت
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'docs'
+
+  deploy:
+    name: انتشار روی GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: انتشار
+        id: deployment
+        uses: actions/deploy-pages@v4
