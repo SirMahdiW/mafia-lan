@@ -23,15 +23,23 @@ class Pend(val who: Set<Int>, val vf: (P) -> M, val hd: (P, M) -> Boolean) {
 
 object R {
     val names = mapOf(
-        "mafia" to "مافیا", "god" to "پدرخوانده", "doc" to "دکتر", "det" to "کارآگاه",
-        "arm" to "زره‌پوش", "sn" to "تک‌تیرانداز", "cit" to "شهروند",
-        "bg" to "محافظ", "hunter" to "شکارچی", "joker" to "دلقک",
-        "matador" to "ماتادور", "natasha" to "ناتاشا", "charlatan" to "شارلاتان", "lecter" to "دکتر لکتر", "lawyer" to "وکیل",
-        "mayor" to "شهردار", "fm" to "فراماسون", "constantine" to "کنستانتین",
-        "consig" to "مشاور مافیا", "maniac" to "مانیاک", "bum" to "ولگرد"
+        "cit" to "شهروند ساده", "doctor" to "دکتر", "karagah" to "کارآگاه", "karagah_vije" to "پوآرو",
+        "sniper" to "تیرانداز", "kalantar" to "حرفه‌ای", "black_smith" to "آهنگر", "arm" to "زره‌پوش",
+        "mohafez" to "محافظ", "angel" to "فرشته نجات", "keshish" to "کشیش", "freemason" to "فراماسون",
+        "constantine" to "کنستانتین", "gun_smith" to "تفنگدار", "hamshhri_kein" to "همشهری کین", "mayor" to "شهردار",
+        "joker" to "جوکر", "ghatel" to "قاتل", "zoodiak" to "زودیاک", "sherlock" to "شرلوک", "jack" to "جک گنجشکه",
+        "nostradamos" to "نوستراداموس", "mafia" to "مافیا ساده", "raees_mafia" to "پدرخوانده", "doctor_lecter" to "دکتر لکتر",
+        "spy" to "جاسوس", "terrorist" to "تروریست", "bomber" to "بمب‌گذار", "good_man" to "گودمن", "vakil" to "وکیل",
+        "matador" to "ماتادور", "blocker" to "بلاکر", "natasha" to "ناتاشا", "sharlatan" to "شارلاتان"
     )
-    private val team = setOf("mafia", "god", "matador", "natasha", "charlatan", "lecter", "lawyer", "consig")
-    fun isM(r: String) = r in team
+    val mafiaTeam = setOf(
+        "mafia", "raees_mafia", "doctor_lecter", "spy", "terrorist", "bomber", "good_man", "vakil",
+        "matador", "blocker", "natasha", "sharlatan"
+    )
+    val independentTeam = setOf("joker", "ghatel", "zoodiak", "sherlock", "jack", "nostradamos")
+    fun isM(r: String) = mafiaTeam.contains(r)
+    fun isIndie(r: String) = independentTeam.contains(r)
+    fun teamOf(r: String) = if (mafiaTeam.contains(r)) "mafia" else if (independentTeam.contains(r)) "independent" else "citizen"
 }
 
 class Sc(val n: String, val d: String, val min: Int, val max: Int, val ideal: Int, val b: (Int) -> List<String>)
@@ -41,19 +49,19 @@ private fun fill(a: MutableList<String>, n: Int): List<String> { while (a.size <
 val SC = listOf(
     Sc("کلاسیک", "ساده و سریع", 5, 9, 7) { n ->
         val a = mutableListOf<String>(); repeat(if (n >= 7) 2 else 1) { a.add("mafia") }
-        a.add("doc"); a.add("det"); fill(a, n)
+        a.add("doctor"); a.add("karagah"); fill(a, n)
     },
     Sc("پدرخوانده", "کارآگاه، پدرخوانده را شهروند می‌بیند؛ زره‌پوش یک شلیک را تاب می‌آورد", 8, 15, 11) { n ->
         val m = if (n <= 9) 2 else if (n <= 13) 3 else 4
-        val a = mutableListOf("god"); repeat(m - 1) { a.add("mafia") }
-        a.add("doc"); a.add("det"); a.add("arm"); fill(a, n)
+        val a = mutableListOf("raees_mafia"); repeat(m - 1) { a.add("mafia") }
+        a.add("doctor"); a.add("karagah"); a.add("arm"); fill(a, n)
     },
     Sc("حرفه‌ای", "همه نقش‌ها + تک‌تیرانداز", 10, 20, 20) { n ->
-        val a = mutableListOf("god"); repeat(n / 3 - 1) { a.add("mafia") }
-        a.add("doc"); a.add("det"); a.add("arm"); a.add("sn"); fill(a, n)
+        val a = mutableListOf("raees_mafia"); repeat(n / 3 - 1) { a.add("mafia") }
+        a.add("doctor"); a.add("karagah"); a.add("arm"); a.add("sniper"); fill(a, n)
     },
     Sc("تست", "فقط برای آزمایش: ۲ تا ۴ نفر؛ بازی تا مرگ یک طرف ادامه دارد", 2, 4, 2) { n ->
-        mutableListOf("mafia", "doc", "det", "sn").take(n)
+        mutableListOf("mafia", "doctor", "karagah", "sniper").take(n)
     }
 )
 
@@ -98,30 +106,32 @@ class Engine(
     @Volatile private var silenced: Int? = null
     private val queue = ArrayList<Int>()
     private val spoken = ArrayList<Int>()
+    private val bomberT = HashMap<Int, Int>()
+    private val terT = HashMap<Int, Int>()
+    private val hamshhriT = HashMap<Int, Int>()
 
-    private val MSP = listOf("god", "matador", "natasha", "charlatan", "lecter", "lawyer", "consig")
-    private val CSP = listOf("doc", "det", "arm", "sn", "bg", "hunter", "joker", "mayor", "constantine", "maniac", "bum")
+    private val MSF = listOf(
+        "mafia", "raees_mafia", "doctor_lecter", "spy", "terrorist", "bomber", "good_man", "vakil",
+        "matador", "blocker", "natasha", "sharlatan"
+    )
+    private val CSF = listOf(
+        "cit", "doctor", "karagah", "karagah_vije", "sniper", "kalantar", "black_smith", "arm", "mohafez",
+        "angel", "keshish", "freemason", "constantine", "gun_smith", "hamshhri_kein", "mayor"
+    )
+    private val INDEP = listOf("joker", "ghatel", "zoodiak", "sherlock", "jack", "nostradamos")
 
     private fun cfgRoles(c: M, n: Int): List<String>? {
         val mc = (c["mafia"] as? Number)?.toInt() ?: return null
         val l = ArrayList<String>()
-        for (k in MSP) if (c[k] == true) l.add(k)
+        for (k in MSF) if (c[k] == true) l.add(k)
         if (l.size > mc) return null
         while (l.size < mc) l.add("mafia")
-        for (k in CSP) if (c[k] == true) l.add(k)
-        if (c["fm"] == true) { l.add("fm"); l.add("fm") }
+        for (k in CSF) if (k != "freemason" && c[k] == true) l.add(k)
+        for (k in INDEP) if (c[k] == true) l.add(k)
+        // فراماسون همیشه دو نفر است (کلید «freemason» و نام قدیمی «fm» هر دو پذیرفته می‌شوند)
+        if (c["freemason"] == true || c["fm"] == true) { l.add("freemason"); l.add("freemason") }
         if (mc < 1 || l.size > n || mc * 2 >= n) return null
         return fill(l, n)
-    }
-
-    private fun hunterRevenge(dead: MutableList<P>) {
-        for (h in dead.toList()) {
-            if (h.role != "hunter") continue
-            var t: P? = null
-            ask(listOf(h.id), { _ -> mapOf("kind" to "pick", "title" to "شکارچی! یک نفر را با خودت ببر", "opts" to alive().map { it.id }) },
-                { _, m -> val x = byId(m["t"]); if (x != null && x.alive) t = x; true }, if (manual) 0L else nightMs)
-            t?.let { it.alive = false; dead.add(it) }
-        }
     }
 
     private fun begin(m: M): Boolean {
@@ -307,13 +317,11 @@ class Engine(
 
     private fun win(): String? {
         val m = alive().count { R.isM(it.role) }
-        val k = alive().count { it.role == "maniac" }
-        val c = alive().size - m - k
-        if (test) return if (m == 0) "شهروندان" else if (c + k == 0) "مافیا" else null
-        if (pl.any { it.role == "maniac" } && k > 0) {
-            return if (m > 0) (if (m >= c + k) "مافیا" else null) else (if (c <= 1) "مانیاک" else null)
-        }
-        return if (m == 0) "شهروندان" else if (m >= c + k) "مافیا" else null
+        val c = alive().count { !R.isM(it.role) }
+        if (test) return if (m == 0) "شهروندان" else if (c == 0) "مافیا" else null
+        if (m == 0) return "شهروندان"
+        if (m >= c) return "مافیا"
+        return null
     }
 
     private fun finish(w: String) { synchronized(lock) { winner = w; phase = "end" }; push() }
@@ -333,20 +341,20 @@ class Engine(
         wakeRole(8, 9, "مافیا", mf,
             { _ -> mapOf("kind" to "team", "team" to mf.map { listOf(it.name, R.names[it.role]) }) },
             { q, _ -> ack.add(q.id); ack.size >= (if (local) 1 else mf.size) }, 0)
-        val fms = pl.filter { it.role == "fm" }
+        val fms = pl.filter { it.role == "freemason" }
         if (fms.isNotEmpty()) {
             val ack2 = HashSet<Int>()
             wakeRole(0, 0, "فراماسون", fms, { _ -> mapOf("kind" to "team", "team" to fms.map { listOf(it.name, "فراماسون") }) },
                 { q, _ -> ack2.add(q.id); ack2.size >= (if (local) 1 else fms.size) }, 0)
         }
-        for ((r, kw, ks) in listOf(Triple("doc", 10, 11), Triple("det", 12, 13), Triple("sn", 14, 15), Triple("arm", 16, 17), Triple("bg", 0, 0), Triple("hunter", 0, 0), Triple("joker", 0, 0), Triple("mayor", 0, 0), Triple("constantine", 0, 0), Triple("maniac", 0, 0), Triple("bum", 0, 0))) {
+        for ((r, kw, ks) in listOf(Triple("doctor", 10, 11), Triple("karagah", 12, 13), Triple("sniper", 14, 15), Triple("kalantar", 16, 17), Triple("arm", 18, 19), Triple("mohafez", 20, 21), Triple("angel", 22, 23), Triple("keshish", 24, 25), Triple("gun_smith", 26, 27), Triple("hamshhri_kein", 28, 29))) {
             val h = pl.filter { it.role == r }
-            if (h.isNotEmpty()) wakeRole(kw, ks, R.names[r]!!, h, { _ -> mapOf("kind" to "know") }, { _, _ -> true }, 0)
+            if (h.isNotEmpty()) wakeRole(kw, ks, R.names[r] ?: r, h, { _ -> mapOf("kind" to "know") }, { _, _ -> true }, 0)
         }
     }
 
     private fun looksMafia(x: P, charl: Set<Int>, law: Set<Int>): Boolean {
-        var r = x.role == "mafia" || x.role == "matador" || x.role == "natasha" || x.role == "charlatan" || x.role == "lecter" || x.role == "lawyer" || x.role == "consig"
+        var r = x.role == "mafia"
         if (charl.contains(x.id)) r = true
         if (law.contains(x.id)) r = false
         return r
@@ -367,14 +375,14 @@ class Engine(
         val law = HashSet<Int>()
         val visits = HashMap<Int, MutableList<Int>>()
         fun visit(a: P, t: P) { visits.getOrPut(t.id) { ArrayList() }.add(a.id) }
-        val mf = alive().filter { R.isM(it.role) }
+        val mf = alive().filter { it.role == "mafia" || it.role == "raees_mafia" }
         val votes = LinkedHashMap<Int, Int>()
         wakeRole(8, 9, "مافیا", mf,
             { _ -> mapOf("kind" to "pick", "title" to "قربانی مافیا را انتخاب کنید",
                 "opts" to alive().filter { !R.isM(it.role) }.map { it.id },
                 "votes" to votes.entries.map { listOf(byId(it.key)?.name, byId(it.value)?.name) }) },
             { q, m -> val x = byId(m["t"]); if (x != null && x.alive && !R.isM(x.role)) { votes[q.id] = x.id; visit(q, x) }; votes.size >= (if (local) 1 else mf.size) }, nightMs)
-        val g = mf.firstOrNull { it.role == "god" }
+        val g = mf.firstOrNull { it.role == "raees_mafia" }
         val cnt = votes.values.groupingBy { it }.eachCount()
         val tgt: Int? = if (g != null && votes[g.id] != null) votes[g.id] else cnt.maxByOrNull { it.value }?.key
 
@@ -390,46 +398,42 @@ class Engine(
             { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && x.id != q.lastT) { blocked = x.id; q.lastT = x.id; visit(q, x) }; true })
         solo("natasha", "ناتاشا", 0, 0, { q -> pk("چه کسی فردا ساکت باشد؟", alive().filter { it != q }.map { it.id }) },
             { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q) { silenced = x.id; visit(q, x) }; true })
-        solo("charlatan", "شارلاتان", 0, 0, { q -> if (q.uses >= 2) inf("دو بار از توانایی‌ات استفاده کرده‌ای.") else pk("چه کسی برای کارآگاه «مافیا» دیده شود؟", alive().filter { !R.isM(it.role) }.map { it.id }) },
+        solo("sharlatan", "شارلاتان", 0, 0, { q -> if (q.uses >= 2) inf("دو بار از توانایی‌ات استفاده کرده‌ای.") else pk("چه کسی برای کارآگاه «مافیا» دیده شود؟", alive().filter { !R.isM(it.role) }.map { it.id }) },
             { q, m -> val x = byId(m["t"]); if (x != null && x.alive && q.uses < 2) { charl.add(x.id); q.uses++; visit(q, x) }; true })
-        solo("lawyer", "وکیل", 0, 0, { _ -> pk("کدام مافیا برای کارآگاه «شهروند» دیده شود؟", mafiaIds()) },
+        solo("vakil", "وکیل", 0, 0, { _ -> pk("کدام مافیا برای کارآگاه «شهروند» دیده شود؟", mafiaIds()) },
             { q, m -> val x = byId(m["t"]); if (x != null && x.alive && R.isM(x.role)) { law.add(x.id); visit(q, x) }; true })
-        solo("lecter", "دکتر لکتر", 0, 0, { q -> pk("کدام مافیا را نجات می‌دهی؟", mafiaIds().filter { !q.self || it != q.id }) },
+        solo("doctor_lecter", "دکتر لکتر", 0, 0, { q -> pk("کدام مافیا را نجات می‌دهی؟", mafiaIds().filter { !q.self || it != q.id }) },
             { q, m -> val x = byId(m["t"]); if (x != null && x.alive && R.isM(x.role) && (!q.self || x != q)) { lecSave = x.id; if (x == q) q.self = true; visit(q, x) }; true })
 
-        solo("doc", "دکتر", 10, 11, { q -> pk("چه کسی را نجات می‌دهی؟", alive().filter { (!q.self || it != q) && !(docNoRepeat && it.id == q.lastT) }.map { it.id }) },
+        solo("doctor", "دکتر", 10, 11, { q -> pk("چه کسی را نجات می‌دهی؟", alive().filter { (!q.self || it != q) && !(docNoRepeat && it.id == q.lastT) }.map { it.id }) },
             { q, m -> val x = byId(m["t"]); if (x != null && x.alive && (!q.self || x != q) && !(docNoRepeat && x.id == q.lastT)) { if (blocked != q.id) save = x.id; if (x == q) q.self = true; q.lastT = x.id; visit(q, x) }; true })
-        solo("bg", "محافظ", 0, 0, { q -> pk("از چه کسی محافظت می‌کنی؟", alive().filter { it != q }.map { it.id }) },
+        solo("mohafez", "محافظ", 0, 0, { q -> pk("از چه کسی محافظت می‌کنی؟", alive().filter { it != q }.map { it.id }) },
             { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && blocked != q.id) { bgT = x.id; visit(q, x) }; true })
 
         var res: Pair<String, Boolean>? = null
         var detBlocked = false
-        solo("det", "کارآگاه", 12, 13,
+        solo("karagah", "کارآگاه", 12, 13,
             { q -> if (detBlocked) inf("توانایی‌ات امشب بی‌اثر شد.") else { val r = res
                 if (r != null) mapOf("kind" to "result", "name" to r.first, "m" to r.second) else pk("از چه کسی استعلام می‌گیری؟", alive().filter { it != q }.map { it.id }) } },
             { q, m -> if (res == null && !detBlocked) { val x = byId(m["t"]); if (x != null) { if (blocked == q.id) detBlocked = true else { res = Pair(x.name, looksMafia(x, charl, law)); visit(q, x) } }; false } else true })
 
-        solo("sn", "تک‌تیرانداز", 14, 15,
+        solo("sniper", "تیرانداز", 14, 15,
             { q -> if (q.shot) inf("تیرت را قبلاً زده‌ای.") else mapOf("kind" to "pick", "title" to "شلیک می‌کنی؟", "skip" to 1, "opts" to alive().filter { it != q }.map { it.id }) },
             { q, m -> val x = byId(m["t"]); if (x != null && x != q && !q.shot) { q.shot = true; if (blocked != q.id) { shotBy = q.id; shotT = x.id; visit(q, x) } }; true })
 
-        solo("constantine", "کنستانتین", 0, 0,
-            { q -> val d = pl.filter { !it.alive }
-                if (q.uses >= 1) inf("از توانایی‌ات استفاده کرده‌ای.") else if (d.isEmpty()) inf("هنوز کسی نمرده است.") else pk("چه کسی زنده شود؟", d.map { it.id }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && !x.alive && q.uses < 1) { q.uses++; if (blocked != q.id) { revive = x; visit(q, x) } }; true })
+        solo("kalantar", "حرفه‌ای", 16, 17, { q -> pk("چه کسی را شلیک می‌کنی؟", alive().filter { it != q }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q) { if (blocked != q.id) { shotBy = q.id; shotT = x.id; visit(q, x) }; q.uses++ }; true })
 
         var cres: String? = null
         var cBlocked = false
-        solo("consig", "مشاور مافیا", 0, 0,
-            { q -> if (cBlocked) inf("توانایی‌ات امشب بی‌اثر شد.") else { val r = cres
-                if (r != null) inf(r) else pk("نقش دقیق چه کسی را می‌خواهی بدانی؟", alive().filter { it != q && !R.isM(it.role) }.map { it.id }) } },
+        solo("blocker", "بلاکر", 0, 0, { q -> if (cBlocked) inf("توانایی‌ات امشب بی‌اثر شد.") else { val r = cres
+            if (r != null) inf(r) else pk("نقش دقیق چه کسی را می‌خواهی بدانی؟", alive().filter { it != q && !R.isM(it.role) }.map { it.id }) } },
             { q, m -> if (cres == null && !cBlocked) { val x = byId(m["t"]); if (x != null && x.alive) { if (blocked == q.id) cBlocked = true else { cres = "نقش " + x.name + ": " + R.names[x.role]; visit(q, x) } }; false } else true })
         var manT: Int? = null
-        solo("maniac", "مانیاک", 0, 0, { q -> pk("چه کسی را می‌کشی؟", alive().filter { it != q }.map { it.id }) },
+        solo("ghatel", "قاتل", 0, 0, { q -> pk("چه کسی را می‌کشی؟", alive().filter { it != q }.map { it.id }) },
             { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && blocked != q.id) { manT = x.id; visit(q, x) }; true })
         var bres: String? = null
-        solo("bum", "ولگرد", 0, 0,
-            { q -> val r = bres; if (r != null) inf(r) else pk("به خانه‌ی چه کسی سر می‌زنی؟", alive().filter { it != q }.map { it.id }) },
+        solo("jack", "جک گنجشکه", 0, 0, { q -> val r = bres; if (r != null) inf(r) else pk("به خانه‌ی چه کسی سر می‌زنی؟", alive().filter { it != q }.map { it.id }) },
             { q, m -> if (bres == null) { val x = byId(m["t"])
                 if (x != null && x.alive && x != q) { val vs = visits[x.id]?.filter { it != q.id }?.mapNotNull { byId(it)?.name }?.distinct()
                     bres = if (blocked == q.id) "توانایی‌ات امشب بی‌اثر شد." else if (vs.isNullOrEmpty()) "شب گذشته کسی به ${x.name} سر نزد." else "به ${x.name} سر زدند: " + vs.joinToString("، ") }
@@ -438,7 +442,7 @@ class Engine(
         val dead = ArrayList<P>()
         if (tgt != null && tgt != save) {
             val x = byId(tgt)!!
-            val b = pl.firstOrNull { it.role == "bg" && it.alive }
+            val b = pl.firstOrNull { it.role == "mohafez" && it.alive }
             if (b != null && bgT == tgt && b != x) dead.add(b) else if (x.armor) x.armor = false else dead.add(x)
         }
         if (shotT >= 0) {
@@ -449,7 +453,6 @@ class Engine(
         val mt = manT
         if (mt != null && mt != save) { val x = byId(mt)!!; if (x.armor) x.armor = false else if (!dead.contains(x)) dead.add(x) }
         dead.forEach { it.alive = false }
-        hunterRevenge(dead)
         val rv = revive
         if (rv != null) { rv.alive = true; dead.remove(rv) }
         val nm = dead.joinToString(" و ") { it.name }
@@ -469,8 +472,8 @@ class Engine(
         val ids = alive().map { it.id }.filter { it != sil }
         val st = if (ids.isEmpty()) 0 else dayNo % ids.size
         synchronized(lock) { dayNo++; phase = "day"; queue.clear(); queue.addAll(ids.drop(st) + ids.take(st)); spoken.clear(); endDay = false }
-        say(3, "روز شد. همه چشم‌ها را باز کنند.", false)
-        if (manual) askCont("روز شد؛ همه چشم‌ها را باز کنند. (بعد از ادامه، نوبت صحبت‌ها شروع می‌شود)")
+        say(3, "روز شد. همه چشم‌ها را باز کنید.", false)
+        if (manual) askCont("روز شد؛ همه چشم‌ها را باز کنید. (بعد از ادامه، نوبت صحبت‌ها شروع می‌شود)")
         push()
         while (true) {
             val t = CountDownLatch(1)
@@ -529,11 +532,6 @@ class Engine(
             x.alive = false
             synchronized(lock) { log.add("${x.name} اخراج شد" + (if (revealRole) "؛ نقش: ${R.names[x.role]}" else "")) }
             if (x.role == "joker") jokerWin = true
-            if (x.role == "hunter") {
-                val l = mutableListOf(x)
-                hunterRevenge(l)
-                if (l.size > 1) synchronized(lock) { log.add("شکارچی با خودش برد: " + l.drop(1).joinToString("، ") { it.name }) }
-            }
         } else synchronized(lock) { log.add("رأی‌ها مساوی بود؛ کسی اخراج نشد.") }
         if (jokerWin) { finish("دلقک"); return }
         val w = win()
