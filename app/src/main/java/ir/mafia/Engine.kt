@@ -12,6 +12,8 @@ class P(val id: Int, val token: String, val name: String) {
     var self = false
     var shot = false
     var armor = false
+    var smith = false          // زرهِ آهنگر (در روز مقابل تروریست محافظت می‌کند)
+    var slaughtered = false    // سلاخی‌شده (برگشت‌ناپذیر)
     var uses = 0
     var lastT = -1
     @Volatile var host = false
@@ -106,9 +108,31 @@ class Engine(
     @Volatile private var silenced: Int? = null
     private val queue = ArrayList<Int>()
     private val spoken = ArrayList<Int>()
-    private val bomberT = HashMap<Int, Int>()
-    private val terT = HashMap<Int, Int>()
-    private val hamshhriT = HashMap<Int, Int>()
+    // وضعیت نقش‌های مرجع (هر بازی از نو پر می‌شود)
+    private val blockedIds = HashSet<Int>()      // بلاک ماتادور/بلاکر در همین شب
+    private var saveActor: Int? = null           // دکتر
+    private var bgActor: Int? = null             // محافظ
+    private var lecActor: Int? = null            // دکتر لکتر
+    private var natActor: Int? = null            // ناتاشا
+    private var shaActor: Int? = null            // شارلاتان
+    private var manActor: Int? = null            // قاتل
+    private var bsActor: Int? = null             // آهنگر
+    private var hamActor: Int? = null            // همشهری کین
+    private var vakActor: Int? = null            // وکیل
+    private var bsTarget: Int? = null            // گیرندهٔ زره آهنگر این شب
+    private var hamPick: Int? = null             // سوژهٔ همشهری کین
+    private var hamKill = false                  // همشهری کین شب بعد بمیرد
+    private var vakilClient: Int? = null         // موکل وکیل (امروز از رأی خارج است)
+    private var gunTo: Int? = null               // صاحب تفنگ
+    private var bombT: Int? = null               // صندلی بمباری‌شده
+    private var bombCode = -1                    // رمز خنثی‌سازی ۱..۴
+    private var keshishBonus: Int? = null        // زمان اضافهٔ صحبت برای سوژهٔ کشیش
+    private var masonDeath = false               // مرگ ماسونی این شب
+    private val mason = HashSet<Int>()           // اعضای جذب‌شدهٔ تیم ماسون
+    private var initM = 1                        // تعداد اولیهٔ مافیا
+    private var jackT: Int? = null               // شیشهٔ عمر جک
+    private var hamKillT: Int? = null            // همشهری کین شب بعد بمیرد (اعلام‌شده)
+    private var noSide = "c"                     // پیش‌بینی نوستراداموس: m یا c
 
     private val MSF = listOf(
         "mafia", "raees_mafia", "doctor_lecter", "spy", "terrorist", "bomber", "good_man", "vakil",
@@ -150,7 +174,21 @@ class Engine(
             if (sc != null && pl.size in sc.min..sc.max) { rs = sc.b(pl.size).shuffled(); test = sc.n == "تست"; revealRole = true; showVotes = false; docNoRepeat = true }
         }
         val roles = rs ?: return false
-        pl.forEachIndexed { i, q -> q.role = roles[i]; q.armor = roles[i] == "arm" }
+        blockedIds.clear(); mason.clear(); masonDeath = false
+        saveActor = null; bgActor = null; lecActor = null; natActor = null; shaActor = null
+        manActor = null; bsActor = null; hamActor = null; vakActor = null
+        bsTarget = null; hamPick = null; hamKill = false; vakilClient = null
+        gunTo = null; bombT = null; bombCode = -1; keshishBonus = null; jackT = null
+        hamKillT = null; noSide = "c"
+        silenced = null
+        initM = roles.count { R.isM(it) }
+        // زره: زره‌پوش از ابتدا زره دارد؛ پدرخوانده، قاتل و زودیاک هم زره شبانه دارند
+        pl.forEachIndexed { i, q ->
+            q.role = roles[i]
+            q.uses = 0; q.self = false; q.shot = false; q.lastT = -1; q.seen = false
+            q.slaughtered = false; q.smith = false
+            q.armor = roles[i] == "arm" || roles[i] == "raees_mafia" || roles[i] == "ghatel" || roles[i] == "zoodiak"
+        }
         phase = "reveal"
         Thread { run() }.start()
         return true
@@ -316,11 +354,23 @@ class Engine(
     }
 
     private fun win(): String? {
-        val m = alive().count { R.isM(it.role) }
-        val c = alive().count { !R.isM(it.role) }
+        val a = alive()
+        val m = a.count { R.isM(it.role) }
+        val c = a.size - m
         if (test) return if (m == 0) "شهروندان" else if (c == 0) "مافیا" else null
-        if (m == 0) return "شهروندان"
-        if (m >= c) return "مافیا"
+        // ۱) تساوی با مافیا → برد مافیا
+        if (m > 0 && m >= c) return "مافیا"
+        // ۲) مافیا تمام شد و جک زنده است → برد جک
+        if (m == 0 && a.any { it.role == "jack" }) return "جک"
+        // ۳) سه نفر آخر: نقش‌های مستقل تنها برنده می‌شوند
+        if (a.size <= 3) {
+            if (a.any { it.role == "ghatel" }) return "قاتل"
+            if (a.any { it.role == "zoodiak" }) return "زودیاک"
+            if (a.any { it.role == "sherlock" }) return "شرلوک"
+            if (a.any { it.role == "jack" }) return "جک"
+        }
+        // ۴) مافیا تمام شد و مستقلی باقی نمانده → برد شهروندان (دلقک فقط با رأی خارج می‌شود)
+        if (m == 0 && a.none { it.role in INDEP }) return "شهروندان"
         return null
     }
 
@@ -347,44 +397,144 @@ class Engine(
             wakeRole(0, 0, "فراماسون", fms, { _ -> mapOf("kind" to "team", "team" to fms.map { listOf(it.name, "فراماسون") }) },
                 { q, _ -> ack2.add(q.id); ack2.size >= (if (local) 1 else fms.size) }, 0)
         }
+        // نوستراداموس: سه بازیکن را نشان می‌دهد، تعداد مافیا را می‌گیرد و سایدش را پیش‌بینی می‌کند
+        for (n in pl.filter { it.role == "nostradamos" }) {
+            say(0, "نوستراداموس بیدار شود.")
+            val picks = ArrayList<Int>()
+            repeat(3) {
+                var p: Int? = null
+                ask(listOf(n.id),
+                    { _ -> mapOf("kind" to "pick", "title" to "یکی از بازیکنان را انتخاب کن (${picks.size + 1}/3)",
+                        "opts" to alive().filter { !picks.contains(it.id) }.map { it.id }) },
+                    { _, m -> val x = byId(m["t"]); if (x != null && x.alive && !picks.contains(x.id)) { p = x.id; picks.add(x.id) }; true },
+                    if (manual) 0L else nightMs)
+                if (p == null) { alive().firstOrNull { !picks.contains(it.id) }?.let { picks.add(it.id) } }
+            }
+            val mc = picks.count { id -> byId(id)?.let { R.isM(it.role) } == true }
+            ask(listOf(n.id), { _ -> mapOf("kind" to "info", "text" to "تعداد مافیا بین سه نفر: $mc") }, { _, _ -> true }, if (manual) 0L else nightMs)
+            if (mc >= 2) {
+                noSide = "m"
+                ask(listOf(n.id), { _ -> mapOf("kind" to "info", "text" to "با توجه به تعداد مافیا، باید با ساید مافیا وارد بازی شوی.") }, { _, _ -> true }, if (manual) 0L else nightMs)
+            } else {
+                var s = ""
+                ask(listOf(n.id),
+                    { _ -> mapOf("kind" to "pick", "title" to "کدام تیم برنده می‌شود؟", "opts" to listOf("شهروندان", "مافیا")) },
+                    { _, m -> s = (m["t"] as? String) ?: ""; true },
+                    if (manual) 0L else nightMs)
+                noSide = if (s == "مافیا") "m" else "c"
+            }
+            synchronized(lock) { log.add("نوستراداموس ساید ${if (noSide == "m") "مافیا" else "شهروندان"} را پیش‌بینی کرد.") }
+            say(0, "نوستراداموس بخوابد.")
+            nap(1200)
+        }
         for ((r, kw, ks) in listOf(Triple("doctor", 10, 11), Triple("karagah", 12, 13), Triple("sniper", 14, 15), Triple("kalantar", 16, 17), Triple("arm", 18, 19), Triple("mohafez", 20, 21), Triple("angel", 22, 23), Triple("keshish", 24, 25), Triple("gun_smith", 26, 27), Triple("hamshhri_kein", 28, 29))) {
             val h = pl.filter { it.role == r }
             if (h.isNotEmpty()) wakeRole(kw, ks, R.names[r] ?: r, h, { _ -> mapOf("kind" to "know") }, { _, _ -> true }, 0)
         }
     }
 
-    private fun looksMafia(x: P, charl: Set<Int>, law: Set<Int>): Boolean {
-        var r = x.role == "mafia"
-        if (charl.contains(x.id)) r = true
-        if (law.contains(x.id)) r = false
-        return r
+    // استعلام کارآگاه: مافیا مثبت (به‌جز پدرخوانده که منفی است)، جاسوس مثبت؛
+    // شارلاتان نتیجهٔ استعلام هدفش را برعکس می‌کند.
+    private fun looksMafia(x: P, charl: Map<Int, Boolean>): Boolean {
+        return charl[x.id] ?: (R.isM(x.role) && x.role != "raees_mafia")
     }
 
     private fun night() {
         phase = "night"; push()
         say(1, "شب شد. همه چشم‌های خود را ببندند.")
         nap(1500)
+        // پاک‌سازی وضعیت یک‌شبه
+        blockedIds.clear(); saveActor = null; bgActor = null; lecActor = null
+        natActor = null; shaActor = null; manActor = null; bsActor = null
+        hamActor = null; vakActor = null; bsTarget = null; hamPick = null
+        masonDeath = false; vakilClient = null
+        val dawn = ArrayList<String>()          // پیام‌های اعلام‌شده در صبح
         var save: Int? = null
-        var shotBy = -1
-        var shotT = -1
+        var sniperT = -1
+        var sniperA: Int? = null
+        var kalBy = -1
+        var kalT = -1
         var bgT: Int? = null
-        var blocked: Int? = null
         var lecSave: Int? = null
-        var revive: P? = null
-        val charl = HashSet<Int>()
-        val law = HashSet<Int>()
+        var zooT: Int? = null
+        var zooBy = -1
+        var zooReflect = false                  // زودیاک به زره‌پوش/محافظ زد → خودش می‌میرد
+        val charl = HashMap<Int, Boolean>()     // شارلاتان: نتیجهٔ استعلام هدف را برعکس می‌کند
         val visits = HashMap<Int, MutableList<Int>>()
         fun visit(a: P, t: P) { visits.getOrPut(t.id) { ArrayList() }.add(a.id) }
-        val mf = alive().filter { it.role == "mafia" || it.role == "raees_mafia" }
+
+        // ---- شرلوک: پیش از مافیا بیدار می‌شود و نقش یک بازیکن را حدس می‌زند ----
+        for (sl in pl.filter { it.role == "sherlock" && it.alive }) {
+            say(0, "شرلوک بیدار شود.")
+            var st: Int? = null
+            var guess: String? = null
+            ask(listOf(sl.id),
+                { _ -> mapOf("kind" to "pick", "title" to "نقش چه کسی را حدس می‌زنی؟", "skip" to 1,
+                    "opts" to alive().filter { it != sl }.map { it.id }) },
+                { _, m -> val x = byId(m["t"]); if (x != null && x.alive && x != sl) st = x.id; true },
+                if (manual) 0L else nightMs)
+            if (st != null) {
+                val opts = alive().mapNotNull { R.names[it.role] }.distinct()
+                ask(listOf(sl.id),
+                    { _ -> mapOf("kind" to "pick", "title" to "نقش او چیست؟", "skip" to 1, "opts" to opts) },
+                    { _, m -> guess = m["t"] as? String; true },
+                    if (manual) 0L else nightMs)
+                val tg = byId(st)
+                val g = guess
+                if (tg != null && tg.alive && g != null && g == R.names[tg.role]) {
+                    // حدس درست: شرلوک نقش او را می‌گیرد و او سلاخی می‌شود (برگشت‌ناپذیر)
+                    val old = tg.role
+                    sl.role = old
+                    tg.alive = false
+                    tg.slaughtered = true
+                    dawn.add("${tg.name} سلاخی شد.")
+                }
+            }
+            say(0, "شرلوک بخوابد.")
+            nap(1200)
+        }
+
+        val mf = alive().filter { R.isM(it.role) }
+        var converted = false
+        // ---- گودمن: به‌جای شات، یک شهروند ساده را یک‌بار به مافیا تبدیل می‌کند ----
+        val gm = mf.firstOrNull { it.role == "good_man" }
+        if (gm != null && gm.uses == 0 && (mf.size < initM || mf.size == 1)) {
+            val cits = alive().filter { it.role == "cit" }
+            if (cits.isNotEmpty()) {
+                say(0, "گودمن بیدار شود.")
+                var pick: Int? = null
+                ask(listOf(gm.id),
+                    { _ -> mapOf("kind" to "pick", "title" to "یک شهروند ساده را به مافیا تبدیل کن",
+                        "skip" to 1, "opts" to cits.map { it.id }) },
+                    { _, m -> val x = byId(m["t"]); pick = if (x != null && x.alive && x.role == "cit") x.id else null; true },
+                    if (manual) 0L else nightMs)
+                val p = pick
+                if (p != null) {
+                    val x = byId(p)!!
+                    x.role = "mafia"
+                    gm.uses = 1
+                    converted = true
+                    ask(listOf(x.id),
+                        { _ -> mapOf("kind" to "team", "team" to alive().filter { R.isM(it.role) }.map { listOf(it.name, R.names[it.role] ?: "") }) },
+                        { _, _ -> true }, if (manual) 0L else nightMs)
+                }
+                say(0, "گودمن بخوابد.")
+                nap(1200)
+            }
+        }
+
         val votes = LinkedHashMap<Int, Int>()
-        wakeRole(8, 9, "مافیا", mf,
-            { _ -> mapOf("kind" to "pick", "title" to "قربانی مافیا را انتخاب کنید",
-                "opts" to alive().filter { !R.isM(it.role) }.map { it.id },
-                "votes" to votes.entries.map { listOf(byId(it.key)?.name, byId(it.value)?.name) }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && !R.isM(x.role)) { votes[q.id] = x.id; visit(q, x) }; votes.size >= (if (local) 1 else mf.size) }, nightMs)
-        val g = mf.firstOrNull { it.role == "raees_mafia" }
-        val cnt = votes.values.groupingBy { it }.eachCount()
-        val tgt: Int? = if (g != null && votes[g.id] != null) votes[g.id] else cnt.maxByOrNull { it.value }?.key
+        var tgt: Int? = null
+        if (!converted) {
+            wakeRole(8, 9, "مافیا", mf,
+                { _ -> mapOf("kind" to "pick", "title" to "قربانی مافیا را انتخاب کنید",
+                    "opts" to alive().filter { !R.isM(it.role) }.map { it.id },
+                    "votes" to votes.entries.map { listOf(byId(it.key)?.name, byId(it.value)?.name) }) },
+                { q, m -> val x = byId(m["t"]); if (x != null && x.alive && !R.isM(x.role)) { votes[q.id] = x.id; visit(q, x) }; votes.size >= (if (local) 1 else mf.size) }, nightMs)
+            val g = mf.firstOrNull { it.role == "raees_mafia" }
+            val cnt = votes.values.groupingBy { it }.eachCount()
+            tgt = if (g != null && votes[g.id] != null) votes[g.id] else cnt.maxByOrNull { it.value }?.key
+        }
 
         fun solo(role: String, name: String, kw: Int, ks: Int, vf: (P) -> M, hd: (P, M) -> Boolean) {
             val all = pl.filter { it.role == role }
@@ -394,75 +544,270 @@ class Engine(
         fun inf(text: String): M = mapOf("kind" to "info", "text" to text)
         fun mafiaIds() = alive().filter { R.isM(it.role) }.map { it.id }
 
-        solo("matador", "ماتادور", 0, 0, { q -> pk("توانایی چه کسی را امشب بی‌اثر می‌کنی؟", alive().filter { it != q && it.id != q.lastT }.map { it.id }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && x.id != q.lastT) { blocked = x.id; q.lastT = x.id; visit(q, x) }; true })
-        solo("natasha", "ناتاشا", 0, 0, { q -> pk("چه کسی فردا ساکت باشد؟", alive().filter { it != q }.map { it.id }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q) { silenced = x.id; visit(q, x) }; true })
-        solo("sharlatan", "شارلاتان", 0, 0, { q -> if (q.uses >= 2) inf("دو بار از توانایی‌ات استفاده کرده‌ای.") else pk("چه کسی برای کارآگاه «مافیا» دیده شود؟", alive().filter { !R.isM(it.role) }.map { it.id }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && q.uses < 2) { charl.add(x.id); q.uses++; visit(q, x) }; true })
-        solo("vakil", "وکیل", 0, 0, { _ -> pk("کدام مافیا برای کارآگاه «شهروند» دیده شود؟", mafiaIds()) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && R.isM(x.role)) { law.add(x.id); visit(q, x) }; true })
+        solo("matador", "ماتادور", 0, 0, { q -> pk("چه کسی را امشب بی‌اثر کنی؟", alive().filter { it != q && !R.isM(it.role) && it.id != q.lastT }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && !R.isM(x.role) && x.id != q.lastT && q.id !in blockedIds) { blockedIds.add(x.id); q.lastT = x.id; visit(q, x) }; true })
+        solo("natasha", "ناتاشا", 0, 0, { _ -> pk("چه کسی فردا ساکت باشد؟", alive().map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive) { silenced = x.id; natActor = q.id; visit(q, x) }; true })
+        solo("sharlatan", "شارلاتان", 0, 0, { q -> if (q.uses >= 2) inf("دو بار از توانایی‌ات استفاده کرده‌ای.") else pk("استعلام چه کسی برعکس شود؟", alive().map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && q.uses < 2) { charl[x.id] = !looksMafia(x, charl); shaActor = q.id; q.uses++; visit(q, x) }; true })
+        solo("vakil", "وکیل", 0, 0, { q -> pk("موکلت را برای امروز انتخاب کن", alive().filter { it != q }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q) { vakilClient = x.id; vakActor = q.id; visit(q, x) }; true })
         solo("doctor_lecter", "دکتر لکتر", 0, 0, { q -> pk("کدام مافیا را نجات می‌دهی؟", mafiaIds().filter { !q.self || it != q.id }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && R.isM(x.role) && (!q.self || x != q)) { lecSave = x.id; if (x == q) q.self = true; visit(q, x) }; true })
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && R.isM(x.role) && (!q.self || x != q)) { lecSave = x.id; lecActor = q.id; if (x == q) q.self = true; visit(q, x) }; true })
 
         solo("doctor", "دکتر", 10, 11, { q -> pk("چه کسی را نجات می‌دهی؟", alive().filter { (!q.self || it != q) && !(docNoRepeat && it.id == q.lastT) }.map { it.id }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && (!q.self || x != q) && !(docNoRepeat && x.id == q.lastT)) { if (blocked != q.id) save = x.id; if (x == q) q.self = true; q.lastT = x.id; visit(q, x) }; true })
-        solo("mohafez", "محافظ", 0, 0, { q -> pk("از چه کسی محافظت می‌کنی؟", alive().filter { it != q }.map { it.id }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && blocked != q.id) { bgT = x.id; visit(q, x) }; true })
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && (!q.self || x != q) && !(docNoRepeat && x.id == q.lastT)) { save = x.id; saveActor = q.id; if (x == q) q.self = true; q.lastT = x.id; visit(q, x) }; true })
+        solo("mohafez", "محافظ", 0, 0, { q -> pk("چه کسی را شبانه سپر کنی؟", alive().filter { it != q }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q) { bgT = x.id; bgActor = q.id; visit(q, x) }; true })
 
-        var res: Pair<String, Boolean>? = null
-        var detBlocked = false
+        // کارآگاه: هدف را انتخاب می‌کند؛ نتیجه پس از بیدارشدن بلاکر و کشیش داده می‌شود
+        var karT: Int? = null
+        var karA: Int? = null
         solo("karagah", "کارآگاه", 12, 13,
-            { q -> if (detBlocked) inf("توانایی‌ات امشب بی‌اثر شد.") else { val r = res
-                if (r != null) mapOf("kind" to "result", "name" to r.first, "m" to r.second) else pk("از چه کسی استعلام می‌گیری؟", alive().filter { it != q }.map { it.id }) } },
-            { q, m -> if (res == null && !detBlocked) { val x = byId(m["t"]); if (x != null) { if (blocked == q.id) detBlocked = true else { res = Pair(x.name, looksMafia(x, charl, law)); visit(q, x) } }; false } else true })
+            { _ -> pk("از چه کسی استعلام می‌گیری؟", alive().filter { it.role != "" }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive) { karT = x.id; karA = q.id; visit(q, x) }; true })
+
+        // پوآرو: فقط نقش‌های مستقل را شناسایی می‌کند
+        for (pv in pl.filter { it.role == "karagah_vije" && it.alive }) {
+            say(0, "پوآرو بیدار شود.")
+            var pt: Int? = null
+            ask(listOf(pv.id),
+                { _ -> pk("از چه کسی استعلام مستقل بگیری؟", alive().filter { it != pv }.map { it.id }) },
+                { _, m -> val x = byId(m["t"]); if (x != null && x.alive && x != pv && pv.id !in blockedIds) { pt = x.id; visit(pv, x) }; true },
+                if (manual) 0L else nightMs)
+            val px = pt?.let { byId(it) }
+            if (px != null && pv.alive) {
+                val ans = if (px.role in INDEP) "نقش ${px.name}: ${R.names[px.role]}" else "${px.name} مستقل نیست."
+                ask(listOf(pv.id), { _ -> inf(ans) }, { _, _ -> true }, if (manual) 0L else nightMs)
+            }
+            say(0, "پوآرو بخوابد.")
+            nap(1200)
+        }
 
         solo("sniper", "تیرانداز", 14, 15,
-            { q -> if (q.shot) inf("تیرت را قبلاً زده‌ای.") else mapOf("kind" to "pick", "title" to "شلیک می‌کنی؟", "skip" to 1, "opts" to alive().filter { it != q }.map { it.id }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x != q && !q.shot) { q.shot = true; if (blocked != q.id) { shotBy = q.id; shotT = x.id; visit(q, x) } }; true })
-
+            { q -> if (q.shot) inf("تیرت را قبلاً زده‌ای.") else mapOf("kind" to "pick", "title" to "شلیک می‌کنی؟", "skip" to 1, "sk" to "شلیک نمی‌کنم", "opts" to alive().filter { it != q }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x != q && !q.shot) { q.shot = true; sniperT = x.id; sniperA = q.id; visit(q, x) }; true })
         solo("kalantar", "حرفه‌ای", 16, 17, { q -> pk("چه کسی را شلیک می‌کنی؟", alive().filter { it != q }.map { it.id }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q) { if (blocked != q.id) { shotBy = q.id; shotT = x.id; visit(q, x) }; q.uses++ }; true })
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q) { kalBy = q.id; kalT = x.id; visit(q, x); q.uses++ }; true })
+        solo("blocker", "بلاکر", 0, 0, { q -> pk("چه کسی را امشب بی‌اثر کنی؟", alive().filter { it != q && !R.isM(it.role) }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && !R.isM(x.role)) { blockedIds.add(x.id); visit(q, x) }; true })
 
-        var cres: String? = null
-        var cBlocked = false
-        solo("blocker", "بلاکر", 0, 0, { q -> if (cBlocked) inf("توانایی‌ات امشب بی‌اثر شد.") else { val r = cres
-            if (r != null) inf(r) else pk("نقش دقیق چه کسی را می‌خواهی بدانی؟", alive().filter { it != q && !R.isM(it.role) }.map { it.id }) } },
-            { q, m -> if (cres == null && !cBlocked) { val x = byId(m["t"]); if (x != null && x.alive) { if (blocked == q.id) cBlocked = true else { cres = "نقش " + x.name + ": " + R.names[x.role]; visit(q, x) } }; false } else true })
+        // کشیش: اثر بلاک ماتادور/بلاکر و لالی ناتاشا را از سوژه برمی‌دارد
+        solo("keshish", "کشیش", 0, 0, { _ -> pk("چه کسی را پاک‌سازی کنی؟", alive().map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && q.id !in blockedIds) {
+                val wasB = blockedIds.remove(x.id)
+                val wasS = silenced == x.id
+                if (wasS) silenced = null else if (!wasB) keshishBonus = x.id
+                visit(q, x)
+            }; true })
+
+        // نتیجهٔ استعلام کارآگاه — پس از بلاکر و کشیش (اگر بلاک شده باشد همیشه «منفی»)
+        val karTarget = karT
+        val karActor = karA
+        if (karTarget != null && karActor != null) {
+            val kv = byId(karTarget)
+            val ka = byId(karActor)
+            if (kv != null && ka != null && ka.alive) {
+                if (shaActor != null && shaActor in blockedIds) charl.clear()
+                val ans = if (karActor in blockedIds) false else looksMafia(kv, charl)
+                ask(listOf(karActor),
+                    { _ -> mapOf("kind" to "result", "name" to kv.name, "m" to ans) },
+                    { _, _ -> true }, if (manual) 0L else nightMs)
+            }
+        }
+
         var manT: Int? = null
         solo("ghatel", "قاتل", 0, 0, { q -> pk("چه کسی را می‌کشی؟", alive().filter { it != q }.map { it.id }) },
-            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && blocked != q.id) { manT = x.id; visit(q, x) }; true })
-        var bres: String? = null
-        solo("jack", "جک گنجشکه", 0, 0, { q -> val r = bres; if (r != null) inf(r) else pk("به خانه‌ی چه کسی سر می‌زنی؟", alive().filter { it != q }.map { it.id }) },
-            { q, m -> if (bres == null) { val x = byId(m["t"])
-                if (x != null && x.alive && x != q) { val vs = visits[x.id]?.filter { it != q.id }?.mapNotNull { byId(it)?.name }?.distinct()
-                    bres = if (blocked == q.id) "توانایی‌ات امشب بی‌اثر شد." else if (vs.isNullOrEmpty()) "شب گذشته کسی به ${x.name} سر نزد." else "به ${x.name} سر زدند: " + vs.joinToString("، ") }
-                false } else true })
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && q.id !in blockedIds) { manT = x.id; manActor = q.id; visit(q, x) }; true })
+        // جک: هر شب شیشهٔ عمر (طلسم) خود را مشخص می‌کند؛ فقط با مرگ او از بازی می‌رود
+        solo("jack", "جک گنجشکه", 0, 0, { q -> pk("شیشهٔ عمرت را روی چه کسی بگذاری؟", alive().filter { it != q }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && q.id !in blockedIds) { jackT = x.id; visit(q, x) }; true })
+        // زودیاک: فقط در شب‌های زوج شلیک می‌کند؛ به زره‌پوش یا محافظ زند → خودش می‌میرد
+        if (night % 2 == 0) solo("zoodiak", "زودیاک", 0, 0,
+            { q -> pk("به چه کسی شلیک می‌کنی؟", alive().filter { it != q }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && q.id !in blockedIds) {
+                zooBy = q.id
+                if (x.role == "arm" || x.role == "mohafez") zooReflect = true
+                else if (x.id != bgT) { zooT = x.id; visit(q, x) }
+            }; true })
+        solo("black_smith", "آهنگر", 0, 0, { q -> pk("به چه کسی زره بدهی؟", alive().filter { it != q }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && q.id !in blockedIds) { bsTarget = x.id; bsActor = q.id; visit(q, x) }; true })
+        solo("constantine", "کنستانتین", 0, 0,
+            { q -> if (q.uses >= 1) inf("یک‌بار مصرف کرده‌ای.") else { val d = pl.filter { !it.alive && !it.slaughtered && it.id != q.id }
+                if (d.isEmpty()) inf("کسی برای بازگشت نیست.") else pk("چه کسی را به بازی برگردانی؟", d.map { it.id }) } },
+            { q, m -> val x = byId(m["t"]); if (x != null && !x.alive && !x.slaughtered && q.uses == 0 && q.id !in blockedIds) {
+                x.alive = true; x.armor = false; x.smith = false; q.uses = 1; dawn.add("${x.name} به بازی بازگشت.") }; true })
+        // فراماسون: هر شب یک بازیکن را جذب تیم ماسون می‌کند؛ انتخاب مافیا (به‌جز جاسوس) = مرگ ماسونی
+        val joined = ArrayList<Int>()
+        solo("freemason", "فراماسون", 0, 0,
+            { q -> if (q.id in blockedIds) inf("بلاک شده‌ای و نمی‌توانی کسی را انتخاب کنی.")
+                   else pk("چه کسی را به تیم ماسون اضافه کنی؟", alive().filter { it != q && it.role != "freemason" && !mason.contains(it.id) }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && q.id !in blockedIds && x.role != "freemason" && !mason.contains(x.id)) {
+                if (R.isM(x.role) && x.role != "spy") masonDeath = true
+                else { mason.add(x.id); joined.add(x.id) }
+                visit(q, x)
+            }; true })
+        for (jid in joined) {
+            ask(listOf(jid),
+                { _ -> mapOf("kind" to "team", "team" to pl.filter { it.alive && (it.role == "freemason" || mason.contains(it.id)) }
+                    .map { listOf(it.name, if (it.role == "freemason") "فراماسون" else (R.names[it.role] ?: "")) }) },
+                { _, _ -> true }, if (manual) 0L else nightMs)
+        }
+        solo("hamshhri_kein", "همشهری کین", 0, 0,
+            { q -> if (q.uses >= 1) inf("این توانایی را یک‌بار مصرف کرده‌ای.")
+                   else pk("کدام بازیکن را تحقیق کنی؟", alive().filter { it != q }.map { it.id }) },
+            { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && q.uses == 0 && q.id !in blockedIds) { hamPick = x.id; hamActor = q.id; visit(q, x) }; true })
+        solo("gun_smith", "تفنگدار", 0, 0,
+            { q -> if (q.uses >= 1) inf("تفنگ جنگی‌ات را سوزانده‌ای و دیگر فرصتی نداری.")
+                   else if (gunTo != null) inf("تفنگ هنوز دست بازیکنی است.")
+                   else pk("تفنگ را به چه کسی بدهی؟", alive().filter { it != q }.map { it.id }) },
+            { q, m -> if (q.id in blockedIds && q.uses == 0) q.uses = 1 else {
+                val x = byId(m["t"]); if (x != null && x.alive && x != q && gunTo == null && q.uses == 0) { gunTo = x.id; visit(q, x) }
+            }; true })
+        // بمب‌گذار: یک‌بار صندلی بازیکنی را بمب می‌گذارد و رمز خنثی‌سازی را تعیین می‌کند
+        for (b in pl.filter { it.role == "bomber" && it.alive && it.uses == 0 && it.id !in blockedIds && bombT == null }) {
+            say(0, "بمب‌گذار بیدار شود.")
+            var bt: Int? = null
+            ask(listOf(b.id),
+                { _ -> mapOf("kind" to "pick", "title" to "صندلی چه کسی بمب بگذاری؟", "skip" to 1, "opts" to alive().filter { it != b }.map { it.id }) },
+                { _, m -> val x = byId(m["t"]); if (x != null && x.alive && x != b) bt = x.id; true },
+                if (manual) 0L else nightMs)
+            val t = bt
+            if (t != null) {
+                var code = ""
+                ask(listOf(b.id),
+                    { _ -> mapOf("kind" to "pick", "title" to "رمز خنثی‌سازی (۱ تا ۴)", "opts" to listOf("1", "2", "3", "4")) },
+                    { _, m -> code = (m["t"] as? String) ?: ""; true },
+                    if (manual) 0L else nightMs)
+                val c = code.toIntOrNull()
+                if (c != null && c in 1..4) { bombT = t; bombCode = c; b.uses = 1 }
+            }
+            say(0, "بمب‌گذار بخوابد.")
+            nap(1200)
+        }
 
         val dead = ArrayList<P>()
-        if (tgt != null && tgt != save) {
+        var jokerOut = false                 // جوکر این شب با شلیک از بازی رفت
+        fun hit(x: P, saved: Boolean): Boolean { // آیا در این حمله می‌میرد؟ (زره اول می‌شود)
+            if (x.armor) { if (x.role != "arm") x.armor = false; return false }
+            return !saved
+        }
+        fun kill(x: P) {
+            if (!x.alive || dead.contains(x)) return
+            if (x.role == "joker") jokerOut = true
+            dead.add(x)
+        }
+        // بلاک در پایان شب (پس از کشیش) اعمال می‌شود
+        fun blockedA(a: Int?) = a != null && a in blockedIds
+        val effSave = if (blockedA(saveActor)) null else save
+        val effLec = if (blockedA(lecActor)) null else lecSave
+        val effBg = if (blockedA(bgActor)) null else bgT
+        if (blockedA(natActor)) silenced = null
+        if (blockedA(vakActor)) vakilClient = null
+        fun saved(x: P) = x.id == effSave || x.id == effLec
+        // زره آهنگر: پیش از محاسبهٔ مرگ‌ها (زره آهنگر در تمام حالات اولویت دارد)
+        val bst = bsTarget; val bsa = bsActor
+        if (bst != null && bsa != null && !blockedA(bsa)) {
+            val x = byId(bst)
+            if (x != null && x.alive && !x.armor) { x.armor = true; x.smith = true }
+        }
+        // شات مافیا (محافظ در برابر شات مافیا فدا می‌شود)
+        if (tgt != null) {
             val x = byId(tgt)!!
             val b = pl.firstOrNull { it.role == "mohafez" && it.alive }
-            if (b != null && bgT == tgt && b != x) dead.add(b) else if (x.armor) x.armor = false else dead.add(x)
+            if (b != null && effBg == tgt && b != x) kill(b)
+            else if (hit(x, saved(x))) kill(x)
         }
-        if (shotT >= 0) {
-            val x = byId(shotT)!!
-            if (R.isM(x.role)) { if (x.id != save && x.id != lecSave && !dead.contains(x)) dead.add(x) }
-            else { val sh = byId(shotBy)!!; if (!dead.contains(sh)) dead.add(sh) }
+        // تیرانداز: هدف می‌میرد مگر زره یا درمان (بدون عکس‌العمل تیر)
+        if (sniperT >= 0 && !blockedA(sniperA)) { val x = byId(sniperT)!!; if (hit(x, saved(x))) kill(x) }
+        // حرفه‌ای: مافیا/مستقل → هدف می‌میرد؛ شهروند → خود حرفه‌ای حتی با زره و درمان
+        if (kalT >= 0 && !blockedA(kalBy)) {
+            val x = byId(kalT)!!
+            if (R.isM(x.role) || x.role in INDEP) { if (hit(x, saved(x))) kill(x) }
+            else { val kh = byId(kalBy)!!; kill(kh) }
         }
+        // قاتل
         val mt = manT
-        if (mt != null && mt != save) { val x = byId(mt)!!; if (x.armor) x.armor = false else if (!dead.contains(x)) dead.add(x) }
+        if (mt != null) { val x = byId(mt)!!; if (hit(x, saved(x))) kill(x) }
+        // زودیاک (شب‌های زوج)
+        val zt = zooT
+        if (zt != null) { val x = byId(zt)!!; if (hit(x, saved(x))) kill(x) }
+        // نامیرایی شب: جک و نوستراداموس از شلیک شبانه جان سالم به در می‌برند
+        dead.removeAll { it.role == "jack" || it.role == "nostradamos" }
         dead.forEach { it.alive = false }
-        val rv = revive
-        if (rv != null) { rv.alive = true; dead.remove(rv) }
+        // طلسم جک: با مرگ صاحب شیشهٔ عمر، جک هم از بازی می‌رود
+        val jt = jackT
+        if (jt != null) {
+            val tx = byId(jt)
+            val jk = pl.firstOrNull { it.role == "jack" && it.alive }
+            if (tx != null && !tx.alive && jk != null) {
+                jk.alive = false
+                dawn.add("${jk.name} با از دست رفتن شیشهٔ عمرش از بازی رفت.")
+            }
+        }
+        // فرشتهٔ نجات: یک‌بار در کل بازی، یکی از کشته‌های همین شب (به‌جز مرگ حرفه‌ای) را برمی‌گرداند
+        val ang = pl.firstOrNull { it.role == "angel" && it.alive && it.uses == 0 }
+        if (ang != null) {
+            val cands = dead.filter { it != ang && it.id != kalBy }
+            if (cands.isNotEmpty()) {
+                say(0, "فرشتهٔ نجات بیدار شود.")
+                var ap: Int? = null
+                ask(listOf(ang.id),
+                    { _ -> mapOf("kind" to "pick", "title" to "کدامیک از کشته‌های امشب را برگردانی؟", "skip" to 1, "opts" to cands.map { it.id }) },
+                    { _, m -> val x = byId(m["t"]); if (x != null && x in cands) ap = x.id; true },
+                    if (manual) 0L else nightMs)
+                val p = ap
+                if (p != null) {
+                    val x = byId(p)!!
+                    dead.remove(x); x.alive = true; ang.uses = 1
+                    dawn.add("${x.name} توسط فرشتهٔ نجات زنده شد.")
+                }
+                say(0, "فرشتهٔ نجات بخوابد.")
+                nap(1200)
+            }
+        }
+        // مرگ اعلام‌شدهٔ همشهری کین (شب بعد، بدون نجات)
+        val hk = hamKillT; hamKillT = null
+        if (hk != null) {
+            val x = byId(hk)
+            if (x != null && x.alive) { x.alive = false; dawn.add("${x.name} به دلیل تحقیق همشهری کین کشته شد.") }
+        }
+        // مرگ ماسونی: فراماسون و همهٔ اعضای ماسون (به‌جز جاسوس) می‌میرند؛ زره و دکتر و فرشته بی‌اثر
+        if (masonDeath) {
+            val vs = pl.filter { it.alive && (it.role == "freemason" || (mason.contains(it.id) && it.role != "spy")) }
+            if (vs.isNotEmpty()) {
+                vs.forEach { it.alive = false }
+                dawn.add("مرگ ماسونی: " + vs.joinToString(" و ") { it.name })
+            }
+        }
+        // زودیاک به زره‌پوش یا محافظ زد → خودش حتی با درمان می‌میرد
+        if (zooReflect) {
+            val z = byId(zooBy)
+            if (z != null && z.alive) { z.alive = false; dawn.add("${z.name} با شلیک به زره‌پوش یا محافظ کشته شد.") }
+        }
+        // همشهری کین: اعلام ساید سوژه در صبح و مرگ خودش در شب بعد
+        val hp = hamPick; val ha = hamActor
+        if (hp != null && ha != null) {
+            val hx = byId(hp); val hh = byId(ha)
+            if (hx != null && hx.alive && hh != null && hh.alive) {
+                if (R.isM(hx.role)) { dawn.add("${hx.name} مافیا است!"); hamKillT = hh.id; hh.uses = 1 }
+                else hh.uses = 1
+            }
+        }
+        // جوکر: مرگ فقط با شات مافیا → پیروزی مافیا
+        var jokByMafia = false
+        val jokP = pl.firstOrNull { it.role == "joker" }
+        if (jokerOut && jokP != null && !jokP.alive) {
+            val other = sniperT == jokP.id || kalT == jokP.id || manT == jokP.id || zooT == jokP.id
+            if (tgt == jokP.id && !other) jokByMafia = true
+        }
         val nm = dead.joinToString(" و ") { it.name }
-        var msg = if (dead.isEmpty()) "امشب کسی از بازی خارج نشد." else "امشب از بازی خارج شد: $nm"
-        if (rv != null) msg += " | " + rv.name + " زنده شد."
-        synchronized(lock) { log.add(msg); night++ }
-        say(if (dead.isEmpty()) 6 else if (dead.size > 1) 5 else 4,
-            if (dead.isEmpty()) "امشب کسی از بازی خارج نشد." else "امشب $nm از بازی خارج شد.", false)
-        if (manual) askCont("📢 اعلام صبح: " + msg)
-        win()?.let { finish(it) }
+        val morning = (if (dead.isEmpty()) "امشب کسی از بازی خارج نشد." else "امشب $nm از بازی خارج شد.") +
+            if (dawn.isNotEmpty()) " — " + dawn.joinToString(" — ") else ""
+        synchronized(lock) { log.add(morning); night++ }
+        say(if (dead.isEmpty()) 6 else if (dead.size > 1) 5 else 4, morning, false)
+        if (manual) askCont("📢 اعلام صبح: " + morning)
+        if (jokByMafia) finish("مافیا") else win()?.let { finish(it) }
     }
 
     private fun day() {
@@ -484,13 +829,145 @@ class Engine(
             if (sp == null) break
             if (!sp.alive) continue
             push()
-            awaitL(t, speakMs)
+            awaitL(t, speakMs + if (sp.id == keshishBonus) speakMs else 0)
             synchronized(lock) { spoken.add(sp.id) }
         }
         synchronized(lock) { speaker = -1; endsAt = 0; phase = "vote" }
-        val al = alive()
+        keshishBonus = null
+
+        // ---- خواب نیمروزی: خنثی‌سازی بمب پس از صحبت‌های دور اول ----
+        val btm = bombT
+        if (btm != null) {
+            val bx = byId(btm)
+            if (bx != null && bx.alive) {
+                val mh = pl.firstOrNull { it.role == "mohafez" && it.alive }
+                var defused = false
+                var exploded: P? = null
+                if (mh != null && mh.id == btm) {
+                    // بمب روی خودِ محافظ باشد: رمز به او گفته می‌شود و حتماً خنثی می‌شود
+                    defused = true
+                    synchronized(lock) { log.add("رمز خنثی‌سازی به محافظ گفته شد؛ بمب خنثی شد.") }
+                } else {
+                    var guesser: P? = null
+                    if (mh != null) {
+                        say(0, "خواب نیمروزی: محافظ بیدار شود.")
+                        var sac = false
+                        ask(listOf(mh.id),
+                            { _ -> mapOf("kind" to "pick", "title" to "آیا برای نجات ${bx.name} فداکاری می‌کنی؟", "opts" to listOf("خیر", "بله")) },
+                            { _, m -> sac = (m["t"] as? String) == "بله"; true },
+                            if (manual) 0L else voteMs)
+                        say(0, "محافظ بخوابد.")
+                        nap(1200)
+                        if (sac) guesser = mh
+                    }
+                    if (guesser == null) guesser = bx
+                    val g = guesser
+                    var code = ""
+                    ask(listOf(g.id),
+                        { _ -> mapOf("kind" to "pick", "title" to "رمز خنثی‌سازی بمب (۱ تا ۴) را حدس بزن", "opts" to listOf("1", "2", "3", "4")) },
+                        { _, m -> code = (m["t"] as? String) ?: ""; true },
+                        if (manual) 0L else voteMs)
+                    if (code.toIntOrNull() == bombCode) defused = true
+                    else exploded = g
+                }
+                bombT = null
+                when {
+                    defused -> { say(0, "بمب خنثی شد."); synchronized(lock) { log.add("بمب خنثی شد.") } }
+                    exploded != null -> {
+                        exploded.alive = false
+                        say(0, "${exploded.name} منفجر شد و از بازی خارج شد.")
+                        synchronized(lock) { log.add("${exploded.name} در انفجار بمب از بازی خارج شد.") }
+                    }
+                }
+            } else bombT = null
+        }
+
+        // ---- شلیک تفنگ جنگی، پیش از رأی‌گیری (به سر برخورد می‌کند؛ زره و نامیرایی بی‌اثر) ----
+        val gto = gunTo
+        gunTo = null
+        if (gto != null) {
+            val gh = byId(gto)
+            if (gh != null && gh.alive) {
+                say(0, "${gh.name} تفنگ در دست دارد؛ پیش از رأی‌گیری باید شلیک کند.")
+                var shootT: Int? = null
+                ask(listOf(gh.id),
+                    { _ -> mapOf("kind" to "pick", "title" to "به چه کسی شلیک می‌کنی؟", "opts" to alive().filter { it != gh }.map { it.id }) },
+                    { _, m -> val x = byId(m["t"]); if (x != null && x.alive && x != gh) shootT = x.id; true },
+                    if (manual) 0L else voteMs)
+                val s = shootT
+                if (s != null) {
+                    val x = byId(s)!!
+                    x.alive = false
+                    say(0, "${x.name} با شلیک تفنگ جنگی از بازی خارج شد.")
+                    synchronized(lock) { log.add("${gh.name} به ${x.name} شلیک کرد؛ ${x.name} حذف شد.") }
+                    if (x.role == "joker") synchronized(lock) { log.add("جوکر با تفنگ حذف شد؛ بازی ادامه دارد.") }
+                    val w0 = win()
+                    if (w0 != null) { finish(w0); return }
+                }
+            }
+        }
+        // موکل وکیل: کاملاً از چرخهٔ رأی‌گیری خارج است (نه رأی می‌دهد، نه رأی می‌گیرد، نه به دفاعیه می‌رود)
+        val al = alive().filter { it.id != vakilClient }
         val votes = HashMap<Int, Int>()
         val c = HashMap<Int, Int>()
+        // خواب نیمروزی شهردار: یک‌بار در کل بازی، اگر دو نفر یا بیشتر رأی آورده باشند و خودش متهم نباشد
+        fun mayorNap(accused: List<Int>): Pair<Boolean, Int?> {
+            val mr = pl.firstOrNull { it.role == "mayor" && it.alive && it.uses == 0 } ?: return Pair(false, null)
+            if (accused.size < 2 || accused.contains(mr.id)) return Pair(false, null)
+            say(0, "خواب نیمروزی: شهردار بیدار شود.")
+            var pick: Int? = null
+            ask(listOf(mr.id),
+                { _ -> mapOf("kind" to "pick", "title" to "خواب نیمروزی: رد کل رأی‌گیری یا خروج مستقیم یک متهم", "skip" to 1, "opts" to accused) },
+                { _, m -> val t = byId(m["t"]); if (t != null && t.alive) pick = t.id; true },
+                if (manual) 0L else voteMs)
+            mr.uses = 1
+            say(0, "شهردار بخوابد.")
+            nap(1200)
+            return if (pick != null) Pair(false, pick) else Pair(true, null)
+        }
+        // خروج از بازی با رأی: جک نامیرا است، زره‌پوش زرهش می‌افتد، تروریست یک نفر را با خود می‌برد
+        fun doEliminate(x: P): Boolean { // true → جوکر با رأی برنده شد
+            if (x.role == "jack") {
+                synchronized(lock) { log.add("${x.name} رأی آورد اما جک گنجشکه نامیراست؛ نقشش افشا شد و در بازی می‌ماند.") }
+                return false
+            }
+            if (x.role == "arm" && x.armor) {
+                x.armor = false; x.smith = false; x.role = "cit"
+                synchronized(lock) { log.add("${x.name} اخراج شد؛ زرهش افتاد و به شهروند ساده تبدیل شد.") }
+                return false
+            }
+            x.alive = false
+            synchronized(lock) { log.add("${x.name} اخراج شد" + (if (revealRole) "؛ نقش: ${R.names[x.role]}" else "")) }
+            if (x.role == "joker") return true
+            if (x.role == "terrorist") {
+                val opts = alive().map { it.id }
+                if (opts.isNotEmpty()) {
+                    say(0, "تروریست بیدار شود: یک نفر را با خود ببرد.")
+                    var tk: Int? = null
+                    ask(listOf(x.id),
+                        { _ -> mapOf("kind" to "pick", "title" to "چه کسی را با خود می‌بری؟", "opts" to opts) },
+                        { _, m -> val t = byId(m["t"]); if (t != null && t.alive) tk = t.id; true },
+                        if (manual) 0L else voteMs)
+                    val t = tk?.let { byId(it) }
+                    if (t != null && t.alive) {
+                        when {
+                            t.smith && t.armor ->
+                                synchronized(lock) { log.add("زره آهنگر مانع خروج ${t.name} شد.") }
+                            t.role == "arm" && t.armor -> {
+                                t.armor = false; t.smith = false; t.role = "cit"
+                                synchronized(lock) { log.add("${t.name} زرهش افتاد و به شهروند ساده تبدیل شد.") }
+                            }
+                            else -> {
+                                t.alive = false
+                                synchronized(lock) { log.add("${t.name} با تروریست از بازی خارج شد.") }
+                                if (t.role == "joker") synchronized(lock) { log.add("جوکر با تروریست خارج شد؛ بازی ادامه دارد.") }
+                            }
+                        }
+                    }
+                }
+            }
+            return false
+        }
         if (local) {
             fun tallyAsk(opts: List<Int>, title: String) {
                 c.clear()
@@ -498,7 +975,16 @@ class Engine(
                     { _, m -> (m["tally"] as? Map<*, *>)?.forEach { (k, v) -> val id = (k as? String)?.toIntOrNull(); val cn = (v as? Number)?.toInt() ?: 0; if (id != null && id in opts && cn > 0) c[id] = cn }; true }, 0)
             }
             tallyAsk(al.map { it.id }, if (twoRound) "مرحله اول: تعداد رأی هر نفر" else "شمارش رأی‌ها")
-            if (twoRound) {
+            val (cancelNap, elimNap) = mayorNap(c.keys.filter { it != vakilClient }.toList())
+            if (cancelNap) {
+                synchronized(lock) { log.add("رأی‌گیری با فرمان شهردار ملغی شد؛ امروز کسی خارج نشد.") }
+                c.clear()
+            } else if (elimNap != null) {
+                val x = byId(elimNap)!!
+                synchronized(lock) { log.add("شهردار ${x.name} را مستقیماً خارج کرد.") }
+                if (doEliminate(x)) { finish("دلقک"); return }
+                c.clear()
+            } else if (twoRound) {
                 val need = (al.size + 1) / 2
                 val defs = c.filter { it.value >= need }.keys.toList()
                 synchronized(lock) { log.add(if (defs.isEmpty()) "کسی به دفاعیه نرفت." else "به دفاعیه رفتند: " + defs.joinToString("، ") { byId(it)?.name ?: "" }) }
@@ -519,9 +1005,20 @@ class Engine(
         } else {
             ask(al.map { it.id },
                 { q -> if (votes.containsKey(q.id)) mapOf("kind" to "wait", "n" to votes.size, "total" to al.size)
-                    else mapOf("kind" to "vote", "opts" to al.filter { it != q }.map { it.id }) },
+                    else mapOf("kind" to "vote", "opts" to alive().filter { it != q && it.id != vakilClient }.map { it.id }) },
                 { q, m -> votes[q.id] = (m["t"] as? Number)?.toInt() ?: -1; votes.size >= al.size }, voteMs)
             votes.forEach { (voter, t) -> if (t >= 0) c[t] = (c[t] ?: 0) + (if (byId(voter)?.role == "mayor") 2 else 1) }
+            val (cancelNap, elimNap) = mayorNap(c.keys.filter { it != vakilClient }.toList())
+            if (cancelNap) {
+                synchronized(lock) { log.add("رأی‌گیری با فرمان شهردار ملغی شد؛ امروز کسی خارج نشد.") }
+                c.clear()
+            }
+            if (elimNap != null) {
+                c.clear()
+                val x = byId(elimNap)!!
+                synchronized(lock) { log.add("شهردار ${x.name} را مستقیماً خارج کرد.") }
+                if (doEliminate(x)) { finish("دلقک"); return }
+            }
         }
         val mx = c.values.maxOrNull() ?: 0
         val top = c.filter { it.value == mx }.keys
@@ -529,10 +1026,9 @@ class Engine(
         if (showVotes && !local) synchronized(lock) { log.add("رأی‌ها: " + votes.entries.joinToString("، ") { (byId(it.key)?.name ?: "") + "←" + (if (it.value >= 0) byId(it.value)?.name ?: "" else "ممتنع") }) }
         if (mx > 0 && top.size == 1) {
             val x = byId(top.first())!!
-            x.alive = false
-            synchronized(lock) { log.add("${x.name} اخراج شد" + (if (revealRole) "؛ نقش: ${R.names[x.role]}" else "")) }
-            if (x.role == "joker") jokerWin = true
-        } else synchronized(lock) { log.add("رأی‌ها مساوی بود؛ کسی اخراج نشد.") }
+            if (doEliminate(x)) jokerWin = true
+        } else if (mx > 0) synchronized(lock) { log.add("رأی‌ها مساوی بود؛ کسی اخراج نشد.") }
+        else synchronized(lock) { log.add("کسی رأی نیاورد؛ کسی اخراج نشد.") }
         if (jokerWin) { finish("دلقک"); return }
         val w = win()
         if (w != null) finish(w) else push()
