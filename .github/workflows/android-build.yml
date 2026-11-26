@@ -20,6 +20,8 @@ jobs:
   build:
     name: ساخت APK (Gradle ${{ matrix.java }})
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: برداشت کد
         uses: actions/checkout@v4
