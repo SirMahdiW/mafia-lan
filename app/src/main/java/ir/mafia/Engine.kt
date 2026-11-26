@@ -123,7 +123,8 @@ class Engine(
     private var hamPick: Int? = null             // سوژهٔ همشهری کین
     private var hamKill = false                  // همشهری کین شب بعد بمیرد
     private var vakilClient: Int? = null         // موکل وکیل (امروز از رأی خارج است)
-    private var gunTo: Int? = null               // صاحب تفنگ
+    private var gunTo: Int? = null               // صاحب تفنگ جنگی
+    private val pracTo = HashSet<Int>()          // صاحبان تفنگ مشقی (بدون اثر)
     private var bombT: Int? = null               // صندلی بمباری‌شده
     private var bombCode = -1                    // رمز خنثی‌سازی ۱..۴
     private var keshishBonus: Int? = null        // زمان اضافهٔ صحبت برای سوژهٔ کشیش
@@ -178,7 +179,7 @@ class Engine(
         saveActor = null; bgActor = null; lecActor = null; natActor = null; shaActor = null
         manActor = null; bsActor = null; hamActor = null; vakActor = null
         bsTarget = null; hamPick = null; hamKill = false; vakilClient = null
-        gunTo = null; bombT = null; bombCode = -1; keshishBonus = null; jackT = null
+        gunTo = null; pracTo.clear(); bombT = null; bombCode = -1; keshishBonus = null; jackT = null
         hamKillT = null; noSide = "c"
         silenced = null
         initM = roles.count { Roles.isM(it) }
@@ -366,10 +367,12 @@ class Engine(
         val m = a.count { Roles.isM(it.role) }
         val c = a.size - m
         if (test) return if (m == 0) "شهروندان" else if (c == 0) "مافیا" else null
-        // ۱) تساوی با مافیا → برد مافیا
-        if (m > 0 && m >= c) return noSideWin("مافیا")
-        // ۲) مافیا تمام شد و جک زنده است → برد جک
-        if (m == 0 && a.any { it.role == "jack" }) return "جک"
+        // تا وقتی قاتل یا زودیاک زنده است: بازی با قانون «سه نفر آخر» ادامه می‌یابد
+        val kz = a.any { it.role == "ghatel" || it.role == "zoodiak" }
+        // ۱) تساوی با مافیا → برد مافیا (فقط وقتی قاتل/زودیاک زنده نیستند)
+        if (m > 0 && m >= c && !kz) return noSideWin("مافیا")
+        // ۲) مافیا تمام شد و جک زنده است → برد جک (با حضور قاتل/زودیاک ادامه بازی)
+        if (m == 0 && a.any { it.role == "jack" } && !kz) return "جک"
         // ۳) سه نفر آخر: نقش‌های مستقل تنها برنده می‌شوند
         if (a.size <= 3) {
             if (a.any { it.role == "ghatel" }) return "قاتل"
@@ -518,8 +521,8 @@ class Engine(
         val mf = alive().filter { Roles.isM(it.role) }
         var converted = false
         // ---- گودمن: به‌جای شات، یک شهروند ساده را یک‌بار به مافیا تبدیل می‌کند ----
-        // کتاب: انتخاب شهروندِ غیرساده یا مستقل → بازیکنی تبدیل نمی‌شود (ضربدر)،
-        // شلیک مافیا در همان شب و قابلیت خریداری از بین می‌رود
+        // کتاب: انتخاب غلط = ضربدر؛ تبدیلی رخ نمی‌دهد و شلیک مافیا فقط در همان شب می‌سوزد؛
+        // جریمه فقط همان شب است و شب‌های بعد (با شرایط) دوباره می‌تواند امتحان کند
         val gm = mf.firstOrNull { it.role == "good_man" }
         if (gm != null && gm.uses == 0 && (mf.size < initM || mf.size == 1)) {
             val cands = alive().filter { !Roles.isM(it.role) }
@@ -541,8 +544,7 @@ class Engine(
                         { _ -> mapOf("kind" to "team", "team" to alive().filter { Roles.isM(it.role) }.map { listOf(it.name, Roles.names[it.role] ?: "") }) },
                         { _, _ -> true }, if (manual) 0L else nightMs)
                 } else if (px != null) {
-                    // ضربدر: تبدیلی رخ نمی‌دهد، شلیک مافیا و قابلیت خریداری از بین می‌رود
-                    gm.uses = 1
+                    // ضربدر: تبدیلی رخ نمی‌دهد و شلیک مافیا فقط همان شب می‌سوزد (بدون محرومیت دائمی)
                     converted = true
                     ask(listOf(gm.id),
                         { _ -> mapOf("kind" to "info", "text" to "ضربدر: انتخاب درست نبود. قابلیت خریداری از بین رفت و امشب شلیکی در کار نیست.") },
@@ -741,13 +743,49 @@ class Engine(
             { q -> if (q.uses >= 1) inf("این توانایی را یک‌بار مصرف کرده‌ای.")
                    else pk("کدام بازیکن را تحقیق کنی؟", alive().filter { it != q }.map { it.id }) },
             { q, m -> val x = byId(m["t"]); if (x != null && x.alive && x != q && q.uses == 0 && q.id !in blockedIds) { hamPick = x.id; hamActor = q.id; visit(q, x) }; true })
-        solo("gun_smith", "تفنگدار", 0, 0,
-            { q -> if (q.uses >= 1) inf("تفنگ جنگی‌ات را سوزانده‌ای و دیگر فرصتی نداری.")
-                   else if (gunTo != null) inf("تفنگ هنوز دست بازیکنی است.")
-                   else pk("تفنگ را به چه کسی بدهی؟", alive().filter { it != q }.map { it.id }) },
-            { q, m -> if (q.id in blockedIds && q.uses == 0) q.uses = 1 else {
-                val x = byId(m["t"]); if (x != null && x.alive && x != q && gunTo == null && q.uses == 0) { gunTo = x.id; visit(q, x) }
-            }; true })
+
+        // تفنگدار: هر شب حداکثر دو تفنگ (کتاب عدد دقیق برای شب نمی‌دهد؛ از تصمیم کاربر: ۲)؛
+        // نمی‌تواند به خودش بدهد؛ مشقی فقط تا وقتی تفنگ جنگی در اختیار است؛
+        // نوع تفنگ را گیرنده نمی‌داند و بعد از شلیک اعلام می‌شود
+        val gsm = pl.firstOrNull { it.role == "gun_smith" && it.alive }
+        if (gsm != null) {
+            say(0, "تفنگدار بیدار شود.")
+            if (gsm.id in blockedIds) {
+                if (gsm.uses == 0) { gsm.uses = 1; synchronized(lock) { log.add("تفنگ جنگی به تفنگدار برگشت و سوخت؛ فرصت از دست رفت.") } }
+                ask(listOf(gsm.id), { _ -> inf("بلاک شده‌ای؛ نمی‌توانی تفنگ بدهی.") }, { _, _ -> true }, if (manual) 0L else nightMs)
+            } else if (gsm.uses >= 1) {
+                ask(listOf(gsm.id), { _ -> inf("تفنگ جنگی‌ات را سوزانده‌ای و دیگر فرصتی نداری.") }, { _, _ -> true }, if (manual) 0L else nightMs)
+            } else {
+                var given = 0
+                while (given < 2) {
+                    val cands = alive().filter { it != gsm }
+                    if (cands.isEmpty()) break
+                    var pick: Int? = null
+                    ask(listOf(gsm.id),
+                        { _ -> mapOf("kind" to "pick", "title" to "تفنگ را به چه کسی بدهی؟ (${given + 1}/2)", "skip" to 1, "opts" to cands.map { it.id }) },
+                        { _, m -> val x = byId(m["t"]); if (x != null && x.alive && x != gsm) pick = x.id; true },
+                        if (manual) 0L else nightMs)
+                    val px = pick ?: break
+                    val topts = ArrayList<String>()
+                    if (gunTo == null) topts.add("تفنگ جنگی")
+                    topts.add("تفنگ مشقی")
+                    var tsel: String? = null
+                    ask(listOf(gsm.id),
+                        { _ -> mapOf("kind" to "pick", "title" to "نوع تفنگ؟", "opts" to topts) },
+                        { _, m -> tsel = m["t"] as? String; true },
+                        if (manual) 0L else nightMs)
+                    when (tsel) {
+                        "تفنگ جنگی" -> if (gunTo == null) { gunTo = px; visit(gsm, byId(px)!!) }
+                        "تفنگ مشقی" -> { pracTo.add(px); visit(gsm, byId(px)!!) }
+                        else -> break
+                    }
+                    given++
+                }
+            }
+            say(0, "تفنگدار بخوابد.")
+            nap(1200)
+        }
+
         // بمب‌گذار: یک‌بار صندلی بازیکنی را بمب می‌گذارد و رمز خنثی‌سازی را تعیین می‌کند
         for (b in pl.filter { it.role == "bomber" && it.alive && it.uses == 0 && it.id !in blockedIds && bombT == null }) {
             say(0, "بمب‌گذار بیدار شود.")
@@ -966,12 +1004,18 @@ class Engine(
             } else bombT = null
         }
 
-        // ---- شلیک تفنگ جنگی، پیش از رأی‌گیری (به سر برخورد می‌کند؛ زره و نامیرایی بی‌اثر) ----
+        // ---- شلیک تفنگ‌ها، پیش از رأی‌گیری (جنگی به سر برخورد می‌کند؛ زره و نامیرایی بی‌اثر؛ مشقی بدون اثر) ----
         val gto = gunTo
         gunTo = null
+        val pto = pracTo.toList()
+        pracTo.clear()
         if (gto != null) {
             val gh = byId(gto)
-            if (gh != null && gh.alive) {
+            if (gh == null || !gh.alive) {
+                // گیرندهٔ تفنگ جنگی همان شب کشته شد؛ فرصت به تفنگدار برمی‌گردد
+                say(0, "تفنگ جنگی شلیک نشد و به تفنگدار برگشت.")
+                synchronized(lock) { log.add("تفنگ جنگی گیرندهٔ همین شب کشته شد؛ به تفنگدار برگشت.") }
+            } else {
                 say(0, "${gh.name} تفنگ در دست دارد؛ پیش از رأی‌گیری باید شلیک کند.")
                 var shootT: Int? = null
                 ask(listOf(gh.id),
@@ -982,14 +1026,31 @@ class Engine(
                 if (s != null) {
                     val x = byId(s)!!
                     x.alive = false
-                    say(0, "${x.name} با شلیک تفنگ جنگی از بازی خارج شد.")
+                    say(0, "نوع تفنگ: جنگی. ${x.name} با شلیک تفنگ جنگی از بازی خارج شد.")
                     synchronized(lock) { log.add("${gh.name} به ${x.name} شلیک کرد؛ ${x.name} حذف شد.") }
+                    pl.firstOrNull { it.role == "gun_smith" }?.uses = 1
                     if (x.role == "joker") synchronized(lock) { log.add("جوکر با تفنگ حذف شد؛ بازی ادامه دارد.") }
                     val w0 = win()
                     if (w0 != null) { finish(w0); return }
                 }
             }
         }
+        for (pid in pto) {
+            if (pid == gto) continue
+            val ph = byId(pid)
+            if (ph == null || !ph.alive) continue
+            say(0, "${ph.name} تفنگ در دست دارد؛ پیش از رأی‌گیری باید شلیک کند.")
+            var pt2: Int? = null
+            ask(listOf(ph.id),
+                { _ -> mapOf("kind" to "pick", "title" to "به چه کسی شلیک می‌کنی؟", "opts" to alive().filter { it != ph }.map { it.id }) },
+                { _, m -> val x = byId(m["t"]); if (x != null && x.alive && x != ph) pt2 = x.id; true },
+                if (manual) 0L else voteMs)
+            say(0, "نوع تفنگ: مشقی. شلیک تفنگ مشقی هیچ اثری نداشت.")
+            val t2n = byId(pt2)?.name
+            synchronized(lock) { log.add("${ph.name} با تفنگ مشقی شلیک کرد به ${t2n ?: "هیچ"}؛ اثری نداشت.") }
+        }
+
+
         // موکل وکیل: کاملاً از چرخهٔ رأی‌گیری خارج است (نه رأی می‌دهد، نه رأی می‌گیرد، نه به دفاعیه می‌رود)
         val al = alive().filter { it.id != vakilClient }
         val votes = HashMap<Int, Int>()
