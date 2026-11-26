@@ -61,8 +61,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        permissions:
-          contents: write
         run: |
           gh release create "${{ github.ref_name }}" "app/build/outputs/apk/debug/app-debug.apk" \
             --title "Mafia LAN ${{ github.ref_name }}" \
