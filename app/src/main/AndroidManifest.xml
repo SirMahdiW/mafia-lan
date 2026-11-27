@@ -5,9 +5,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <application
         android:label="مافیا"
-        android:icon="@android:drawable/ic_menu_myplaces"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="true"
-        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+        android:theme="@style/Theme.MafiaLan">
         <activity
             android:name=".MainActivity"
             android:exported="true"

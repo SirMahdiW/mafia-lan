@@ -142,7 +142,7 @@ class Server(private val port: Int, private val engine: Engine, private val asse
             }
             val name = if (path == "/") "client.html" else path.removePrefix("/")
             val serve = name == "client.html" ||
-                (listOf("audio/", "img/", "data/").any { name.startsWith(it) } && !name.contains(".."))
+                (listOf("audio/", "img/", "data/", "fonts/").any { name.startsWith(it) } && !name.contains(".."))
             val data = if (serve) asset(name) else null
             if (data == null) send(out, 404, "text/plain", ByteArray(0))
             else send(out, 200, mime(name), data)
